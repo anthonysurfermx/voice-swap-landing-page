@@ -17,8 +17,15 @@ const UNICHAIN_CONFIG = {
   },
 }
 
-// WalletConnect Project ID
-const PROJECT_ID = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'a7f53074c8b97d5aa4c8fb80c2f64564'
+// WalletConnect Project ID (same as iOS app)
+const PROJECT_ID = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || '0c9c91473cd01a94bd2417f6fb1d5c9d'
+
+// Wallet IDs from WalletConnect Explorer
+const RECOMMENDED_WALLETS = [
+  'c03dfee351b6fcc421b4494ea33b9d4b92a984f87aa76d1663bb28705e95f4be', // Uniswap Wallet
+  'c57ca95b47569778a828d19178114f4db188b89b763c899ba0be274e97267d96', // MetaMask
+  '1ae92b26df02f0abca6304df07debccd18262fdf5fe82daa81593582dac9a369', // Rainbow
+]
 
 interface Web3ContextType {
   address: string | null
@@ -67,6 +74,11 @@ export function Web3Provider({ children }: { children: ReactNode }) {
           },
           rpcMap: {
             [UNICHAIN_CONFIG.chainId]: UNICHAIN_CONFIG.rpcUrl,
+          },
+          // Show recommended wallets including Uniswap Wallet
+          qrModalOptions: {
+            explorerRecommendedWalletIds: RECOMMENDED_WALLETS,
+            enableExplorer: true,
           },
         })
 

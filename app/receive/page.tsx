@@ -7,7 +7,7 @@ import Link from 'next/link'
 import { ArrowLeft, Wallet, Copy, Check, Smartphone, QrCode } from 'lucide-react'
 
 export default function ReceivePage() {
-  const { connect, disconnect, address, isConnected, isConnecting } = useWeb3()
+  const { address, isConnected, isConnecting, connect, disconnect } = useWeb3()
   const [amount, setAmount] = useState('')
   const [merchantName, setMerchantName] = useState('')
   const [copied, setCopied] = useState(false)
