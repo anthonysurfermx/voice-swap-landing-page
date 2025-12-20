@@ -1,4 +1,5 @@
-import { Github } from "lucide-react"
+import { Github, QrCode } from "lucide-react"
+import Link from "next/link"
 
 export function HeroSection() {
   return (
@@ -30,6 +31,13 @@ export function HeroSection() {
               </span>
             </button>
           </div>
+          <Link
+            href="/receive"
+            className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 bg-[#4ADE80] border-[3px] border-black font-black uppercase text-sm sm:text-base tracking-tight brutalist-shadow brutalist-shadow-hover brutalist-press inline-flex items-center justify-center gap-2"
+          >
+            <QrCode className="w-5 h-5" strokeWidth={3} />
+            RECEIVE PAYMENTS
+          </Link>
           <a
             href="https://github.com/anthropicsurfermx/voiceswap"
             target="_blank"
