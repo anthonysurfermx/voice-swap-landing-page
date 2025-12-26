@@ -23,27 +23,39 @@ const steps = [
 
 export function HowItWorks() {
   return (
-    <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 lg:py-20">
-      <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black uppercase tracking-tight text-center mb-8 sm:mb-12">
-        HOW IT WORKS
-      </h2>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
+    <section className="max-w-4xl mx-auto px-6 lg:px-8 py-16 lg:py-24">
+      {/* Section header - Interfacer style */}
+      <div className="flex items-center gap-2 mb-12">
+        <div className="w-2 h-2 bg-black rounded-full" />
+        <span className="text-[11px] font-bold tracking-[0.2em] uppercase font-mono">
+          HOW IT WORKS
+        </span>
+      </div>
+
+      <div className="space-y-0">
         {steps.map((step, index) => {
           const Icon = step.icon
           return (
             <div
               key={index}
-              className="bg-white border-[3px] border-black brutalist-shadow brutalist-shadow-hover overflow-hidden"
+              className="flex gap-6 py-8 border-b border-[#E5E5E5] last:border-b-0"
             >
-              {/* Header bar */}
-              <div className="bg-[#FFE135] border-b-[3px] border-black p-4 flex items-center justify-between">
-                <span className="text-2xl sm:text-3xl font-black">{step.number}</span>
-                <Icon className="w-6 h-6 sm:w-8 sm:h-8" strokeWidth={3} />
+              {/* Number + Icon */}
+              <div className="flex-shrink-0 w-16">
+                <div className="w-10 h-10 bg-[#1BFFE3]/15 rounded-sm flex items-center justify-center">
+                  <Icon className="w-5 h-5 text-black" strokeWidth={2} />
+                </div>
               </div>
-              {/* Body */}
-              <div className="p-4 sm:p-6 space-y-3">
-                <h3 className="text-xl sm:text-2xl font-black uppercase tracking-tight">{step.title}</h3>
-                <p className="font-bold text-sm sm:text-base leading-relaxed">{step.description}</p>
+
+              {/* Content */}
+              <div className="flex-1 space-y-2">
+                <div className="flex items-center gap-3">
+                  <span className="text-[11px] font-bold tracking-[0.1em] uppercase font-mono text-[#777777]">
+                    {step.number}
+                  </span>
+                  <h3 className="text-lg font-bold tracking-tight">{step.title}</h3>
+                </div>
+                <p className="text-[#777777] text-sm leading-relaxed">{step.description}</p>
               </div>
             </div>
           )

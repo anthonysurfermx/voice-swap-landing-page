@@ -57,11 +57,33 @@ export function Web3Provider({ children }: { children: ReactNode }) {
   const [provider, setProvider] = useState<BrowserProvider | null>(null)
   const [signer, setSigner] = useState<JsonRpcSigner | null>(null)
   const [wcProvider, setWcProvider] = useState<InstanceType<typeof EthereumProvider> | null>(null)
+  const [isInitialized, setIsInitialized] = useState(false)
+
+  // Helper to restore session from provider
+  const restoreSession = useCallback(async (ethereumProvider: InstanceType<typeof EthereumProvider>) => {
+    try {
+      const ethersProvider = new BrowserProvider(ethereumProvider)
+      const accounts = await ethersProvider.listAccounts()
+      if (accounts.length > 0) {
+        console.log('[Web3] Session restored for:', accounts[0].address)
+        setAddress(accounts[0].address)
+        setProvider(ethersProvider)
+        const signerInstance = await ethersProvider.getSigner()
+        setSigner(signerInstance)
+        return true
+      }
+    } catch (error) {
+      console.error('[Web3] Failed to restore session:', error)
+    }
+    return false
+  }, [])
 
   // Initialize provider on mount
   useEffect(() => {
     const init = async () => {
       try {
+        console.log('[Web3] Initializing WalletConnect provider...')
+
         const ethereumProvider = await EthereumProvider.init({
           projectId: PROJECT_ID,
           chains: [UNICHAIN_CONFIG.chainId],
@@ -83,21 +105,20 @@ export function Web3Provider({ children }: { children: ReactNode }) {
         })
 
         setWcProvider(ethereumProvider)
+        setIsInitialized(true)
 
-        // Check if already connected
-        if (ethereumProvider.connected) {
-          const ethersProvider = new BrowserProvider(ethereumProvider)
-          const accounts = await ethersProvider.listAccounts()
-          if (accounts.length > 0) {
-            setAddress(accounts[0].address)
-            setProvider(ethersProvider)
-            const signerInstance = await ethersProvider.getSigner()
-            setSigner(signerInstance)
-          }
+        // Check if session exists and restore it
+        if (ethereumProvider.session) {
+          console.log('[Web3] Found existing session, restoring...')
+          await restoreSession(ethereumProvider)
+        } else if (ethereumProvider.connected) {
+          console.log('[Web3] Provider connected, restoring session...')
+          await restoreSession(ethereumProvider)
         }
 
         // Listen for account changes
         ethereumProvider.on('accountsChanged', (accounts: string[]) => {
+          console.log('[Web3] Accounts changed:', accounts)
           if (accounts.length > 0) {
             setAddress(accounts[0])
           } else {
@@ -109,17 +130,28 @@ export function Web3Provider({ children }: { children: ReactNode }) {
 
         // Listen for disconnect
         ethereumProvider.on('disconnect', () => {
+          console.log('[Web3] Disconnected')
           setAddress(null)
           setProvider(null)
           setSigner(null)
         })
+
+        // Listen for session events
+        ethereumProvider.on('session_delete', () => {
+          console.log('[Web3] Session deleted')
+          setAddress(null)
+          setProvider(null)
+          setSigner(null)
+        })
+
       } catch (error) {
-        console.error('Failed to initialize WalletConnect:', error)
+        console.error('[Web3] Failed to initialize WalletConnect:', error)
+        setIsInitialized(true) // Still mark as initialized to avoid infinite loading
       }
     }
 
     init()
-  }, [])
+  }, [restoreSession])
 
   const connect = useCallback(async () => {
     if (!wcProvider) {

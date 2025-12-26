@@ -4,41 +4,39 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: #f5f5dc; /* Cream/beige */
+  /* Interfacer.co inspired brutalist palette */
+  --background: #ffffff; /* Pure white */
   --foreground: #000000; /* Pure black */
-  --card: #ffffff; /* White */
+  --card: #ffffff;
   --card-foreground: #000000;
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: #ffe135; /* Bright yellow */
+  --popover: #ffffff;
+  --popover-foreground: #000000;
+  --primary: #1BFFE3; /* Interfacer cyan/teal */
   --primary-foreground: #000000;
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: #ff6b6b; /* Coral red */
+  --secondary: #f5f5f5;
+  --secondary-foreground: #000000;
+  --muted: #f5f5f5;
+  --muted-foreground: #777777; /* Interfacer muted */
+  --accent: #1BFFE3; /* Interfacer cyan */
   --accent-foreground: #000000;
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.577 0.245 27.325);
-  --success: #4ecdc4; /* Teal */
+  --destructive: #FF3B30;
+  --destructive-foreground: #ffffff;
+  --success: #1BFFE3;
   --success-foreground: #000000;
-  --border: #000000;
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --radius: 4px; /* Max 4px for brutalist style */
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --border: #E5E5E5; /* Subtle borders */
+  --border-dark: #000000; /* For emphasis */
+  --input: #ffffff;
+  --ring: #1BFFE3;
+  --divider: #E5E5E5;
+  --radius: 2px; /* Minimal radius - brutalist */
+  --sidebar: #ffffff;
+  --sidebar-foreground: #000000;
+  --sidebar-primary: #000000;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f5f5f5;
+  --sidebar-accent-foreground: #000000;
+  --sidebar-border: #E5E5E5;
+  --sidebar-ring: #1BFFE3;
 }
 
 .dark {

@@ -1,20 +1,35 @@
 import Link from "next/link"
-import { Glasses } from "lucide-react"
 
 export function Navigation() {
   return (
-    <nav className="border-b-[3px] border-black bg-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16 sm:h-20">
-          <Link href="/" className="flex items-center gap-2 text-xl sm:text-2xl font-black uppercase tracking-tight">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-[#4ECDC4] border-[2px] border-black flex items-center justify-center">
-              <Glasses className="w-5 h-5 sm:w-6 sm:h-6 text-black" strokeWidth={3} />
-            </div>
-            VOICESWAP
+    <nav className="border-b border-[#E5E5E5] bg-white">
+      <div className="max-w-7xl mx-auto px-6 lg:px-8">
+        <div className="flex justify-between items-center h-16">
+          <Link href="/" className="flex items-center gap-3">
+            {/* Minimal dot indicator */}
+            <div className="w-2 h-2 bg-[#1BFFE3] rounded-full" />
+            <span className="text-xs font-bold tracking-[0.2em] uppercase font-mono">
+              VOICESWAP
+            </span>
           </Link>
-          <button className="px-4 sm:px-6 py-2 sm:py-2.5 bg-[#FFE135] border-[3px] border-black font-black uppercase text-xs sm:text-sm tracking-tight brutalist-shadow-sm brutalist-shadow-hover brutalist-press">
-            GET APP
-          </button>
+
+          <div className="flex items-center gap-4">
+            {/* Secondary link for merchants */}
+            <Link
+              href="/receive"
+              className="text-[11px] font-bold tracking-[0.1em] uppercase font-mono text-[#777777] hover:text-black transition-colors hidden sm:block"
+            >
+              FOR BUSINESSES
+            </Link>
+
+            {/* Primary CTA - scrolls to waitlist */}
+            <a
+              href="#waitlist"
+              className="px-4 py-2 bg-[#1BFFE3] text-black text-[11px] font-bold tracking-[0.1em] uppercase font-mono hover:bg-[#66DEE0] transition-colors"
+            >
+              GET EARLY ACCESS
+            </a>
+          </div>
         </div>
       </div>
     </nav>

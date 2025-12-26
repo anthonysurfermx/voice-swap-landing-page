@@ -1,6 +1,5 @@
 import { Navigation } from "@/components/navigation"
 import { HeroSection } from "@/components/hero-section"
-import { VideoSection } from "@/components/video-section"
 import { HowItWorks } from "@/components/how-it-works"
 import { FeaturesGrid } from "@/components/features-grid"
 import { TechStack } from "@/components/tech-stack"
@@ -13,7 +12,6 @@ export default function Home() {
       <Navigation />
       <main>
         <HeroSection />
-        <VideoSection />
         <HowItWorks />
         <FeaturesGrid />
         <TechStack />

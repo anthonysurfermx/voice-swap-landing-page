@@ -1,52 +1,63 @@
-import { Github, QrCode } from "lucide-react"
-import Link from "next/link"
+import { Glasses } from "lucide-react"
+import { VideoSection } from "./video-section"
 
 export function HeroSection() {
   return (
-    <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 lg:py-24">
-      <div className="text-center space-y-6 sm:space-y-8">
-        {/* Main title */}
-        <h1 className="text-5xl sm:text-7xl lg:text-8xl font-black uppercase tracking-tighter leading-none text-balance">
-          VOICESWAP
+    <section className="max-w-4xl mx-auto px-6 lg:px-8 py-20 lg:py-32">
+      <div className="space-y-8">
+        {/* Status indicator */}
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 bg-[#1BFFE3] rounded-full animate-pulse" />
+          <span className="text-[11px] font-medium tracking-[0.1em] uppercase font-mono text-[#777777]">
+            META RAY-BAN • UNICHAIN
+          </span>
+        </div>
+
+        {/* Main title - Interfacer style */}
+        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.1]">
+          Pay with your voice
+          <br />
+          <span className="text-[#777777]">through AI glasses</span>
         </h1>
 
         {/* Tagline */}
-        <p className="text-base sm:text-lg lg:text-xl font-bold max-w-2xl mx-auto px-4">
-          Voice-activated crypto payments for AI glasses
+        <p className="text-base lg:text-lg text-[#777777] max-w-md leading-relaxed">
+          Scan a QR code, say the amount, confirm with your voice.
+          Instant USDC payments on Unichain — no phone needed.
         </p>
 
-        {/* Subtitle */}
-        <p className="text-2xl sm:text-3xl lg:text-4xl font-black uppercase tracking-tight">Speak. Send. Settled.</p>
-
-        {/* CTA buttons */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-4 sm:pt-6 px-4">
-          <div className="relative w-full sm:w-auto">
+        {/* CTA buttons - minimal style */}
+        <div className="flex flex-col sm:flex-row gap-3 pt-4">
+          {/* Primary CTA - Coming Soon state */}
+          <div className="relative">
             <button
               disabled
-              className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 bg-[#FFE135] border-[3px] border-black font-black uppercase text-sm sm:text-base tracking-tight brutalist-shadow opacity-60 cursor-not-allowed relative"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-[#1BFFE3]/50 text-black/50 text-[11px] font-bold tracking-[0.1em] uppercase font-mono cursor-not-allowed"
             >
+              <Glasses className="w-4 h-4" strokeWidth={2} />
               GET THE APP
-              <span className="absolute -top-2 -right-2 px-2 py-1 bg-[#FF6B6B] border-[2px] border-black text-[10px] font-black uppercase brutalist-shadow-sm">
-                Coming Soon
-              </span>
             </button>
+            <span className="absolute -top-2 -right-2 px-2 py-0.5 bg-black text-white text-[9px] font-bold tracking-[0.1em] uppercase font-mono">
+              SOON
+            </span>
           </div>
-          <Link
-            href="/receive"
-            className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 bg-[#4ADE80] border-[3px] border-black font-black uppercase text-sm sm:text-base tracking-tight brutalist-shadow brutalist-shadow-hover brutalist-press inline-flex items-center justify-center gap-2"
-          >
-            <QrCode className="w-5 h-5" strokeWidth={3} />
-            RECEIVE PAYMENTS
-          </Link>
-          <a
-            href="https://github.com/anthropicsurfermx/voiceswap"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 bg-white border-[3px] border-black font-black uppercase text-sm sm:text-base tracking-tight brutalist-shadow brutalist-shadow-hover brutalist-press inline-flex items-center justify-center gap-2"
-          >
-            <Github className="w-5 h-5" strokeWidth={3} />
-            VIEW ON GITHUB
-          </a>
+          <VideoSection />
+        </div>
+
+        {/* Stats row - Interfacer minimal */}
+        <div className="flex gap-12 pt-8 border-t border-[#E5E5E5]">
+          <div>
+            <p className="text-2xl font-bold">$0</p>
+            <p className="text-[11px] font-medium tracking-[0.05em] uppercase text-[#777777] font-mono">Gas fees</p>
+          </div>
+          <div>
+            <p className="text-2xl font-bold">&lt;1s</p>
+            <p className="text-[11px] font-medium tracking-[0.05em] uppercase text-[#777777] font-mono">Tx time</p>
+          </div>
+          <div>
+            <p className="text-2xl font-bold">USDC</p>
+            <p className="text-[11px] font-medium tracking-[0.05em] uppercase text-[#777777] font-mono">Stablecoin</p>
+          </div>
         </div>
       </div>
     </section>

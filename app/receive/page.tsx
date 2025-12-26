@@ -2,25 +2,390 @@
 
 import { useWeb3 } from '@/components/web3-provider'
 import { QRCodeSVG } from 'qrcode.react'
-import { useState } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Wallet, Copy, Check, Smartphone, QrCode } from 'lucide-react'
+import { Wallet, Copy, Check, QrCode, LogOut, RefreshCw, ExternalLink, Bell, BellOff, Volume2, VolumeX, BarChart3, Download, Users } from 'lucide-react'
+
+// USDC contract on Unichain
+const USDC_CONTRACT = '0x078D782b760474a361dDA0AF3839290b0EF57AD6'
+const UNICHAIN_EXPLORER = 'https://uniscan.xyz'
+const POLLING_INTERVAL = 10000 // 10 seconds
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://voiceswap-api.vercel.app'
+
+interface Transaction {
+  hash: string
+  from: string
+  to: string
+  value: string
+  timestamp: number
+  blockNumber: number
+  concept?: string
+}
+
+interface NewPaymentToast {
+  id: string
+  value: string
+  from: string
+  hash: string
+}
+
+interface MerchantStats {
+  totalPayments: number
+  totalAmount: string
+  uniquePayers: number
+  conceptBreakdown: { concept: string; count: number; total: string }[]
+}
 
 export default function ReceivePage() {
   const { address, isConnected, isConnecting, connect, disconnect } = useWeb3()
   const [amount, setAmount] = useState('')
-  const [merchantName, setMerchantName] = useState('')
+  const [concept, setConcept] = useState('')
   const [copied, setCopied] = useState(false)
   const [showQR, setShowQR] = useState(false)
+  const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [loadingTxs, setLoadingTxs] = useState(false)
+  const [txError, setTxError] = useState<string | null>(null)
 
-  // Generate payment URL for QR code (deep link to iOS app)
-  const paymentUrl = address
-    ? `voiceswap://pay?wallet=${address}${amount ? `&amount=${amount}` : ''}${merchantName ? `&name=${encodeURIComponent(merchantName)}` : ''}`
-    : ''
+  // Notification states
+  const [soundEnabled, setSoundEnabled] = useState(true)
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false)
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default')
+  const [toasts, setToasts] = useState<NewPaymentToast[]>([])
+  const [isPolling, setIsPolling] = useState(false)
+  const [stats, setStats] = useState<MerchantStats | null>(null)
+  const [showStats, setShowStats] = useState(false)
 
-  // Web fallback URL
+  // Refs for tracking
+  const lastKnownTxHash = useRef<string | null>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Initialize audio
+  useEffect(() => {
+    // Create audio element for payment notification sound
+    audioRef.current = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdH2JkJWTjHhpZG6Ck5yklYZ1aW59kJ6jnI57bWt4iZqjo5iIeW9xfYycp6OWhXRtcoCSnqadkIJ1bnODlaKonpGDeXBxgZWipZ2QgnhwcYKWpKadk4N5cHCAmKWmm5GCeHFvf5ilpZuRgndxb3+YpaijkYF3cXB/mKamo5GCeHFwgJilpaORgnhxcICYpaWjkoJ4cXCAmKWlo5KCeHFwgJilpaOSgnhxcICYpaWjkoJ4cXCAmKWlo5KCeHFwgJilpaOSgnhxcA==')
+    audioRef.current.volume = 0.5
+
+    // Check notification permission
+    if ('Notification' in window) {
+      setNotificationPermission(Notification.permission)
+      if (Notification.permission === 'granted') {
+        setNotificationsEnabled(true)
+      }
+    }
+
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current)
+      }
+    }
+  }, [])
+
+  // Load settings from localStorage
+  useEffect(() => {
+    const savedConcept = localStorage.getItem('voiceswap_concept')
+    if (savedConcept) setConcept(savedConcept)
+
+    const savedSound = localStorage.getItem('voiceswap_sound')
+    if (savedSound !== null) setSoundEnabled(savedSound === 'true')
+  }, [])
+
+  // Save concept to localStorage
+  const handleConceptChange = (value: string) => {
+    setConcept(value)
+    localStorage.setItem('voiceswap_concept', value)
+  }
+
+  // Toggle sound
+  const toggleSound = () => {
+    const newValue = !soundEnabled
+    setSoundEnabled(newValue)
+    localStorage.setItem('voiceswap_sound', String(newValue))
+  }
+
+  // Request notification permission
+  const requestNotificationPermission = async () => {
+    if (!('Notification' in window)) {
+      alert('This browser does not support notifications')
+      return
+    }
+
+    const permission = await Notification.requestPermission()
+    setNotificationPermission(permission)
+    setNotificationsEnabled(permission === 'granted')
+  }
+
+  // Play notification sound
+  const playNotificationSound = () => {
+    if (soundEnabled && audioRef.current) {
+      audioRef.current.currentTime = 0
+      audioRef.current.play().catch(() => {
+        // Ignore autoplay errors
+      })
+    }
+  }
+
+  // Show browser notification
+  const showBrowserNotification = (tx: Transaction) => {
+    if (notificationsEnabled && 'Notification' in window && Notification.permission === 'granted') {
+      const notification = new Notification('Payment Received!', {
+        body: `+$${tx.value} USDC from ${tx.from.slice(0, 8)}...${tx.from.slice(-4)}`,
+        icon: '/icon.png',
+        tag: tx.hash,
+        requireInteraction: false
+      })
+
+      notification.onclick = () => {
+        window.open(`${UNICHAIN_EXPLORER}/tx/${tx.hash}`, '_blank')
+        notification.close()
+      }
+
+      setTimeout(() => notification.close(), 5000)
+    }
+  }
+
+  // Show toast notification
+  const showToast = (tx: Transaction) => {
+    const toast: NewPaymentToast = {
+      id: tx.hash,
+      value: tx.value,
+      from: tx.from,
+      hash: tx.hash
+    }
+
+    setToasts(prev => [toast, ...prev])
+
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== toast.id))
+    }, 5000)
+  }
+
+  // Save payment to backend with concept
+  const savePaymentToBackend = async (tx: Transaction, paymentConcept: string) => {
+    try {
+      await fetch(`${API_BASE}/voiceswap/merchant/payment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          merchantWallet: address,
+          txHash: tx.hash,
+          fromAddress: tx.from,
+          amount: tx.value,
+          concept: paymentConcept || undefined,
+          blockNumber: tx.blockNumber,
+        }),
+      })
+      console.log('[VoiceSwap] Payment saved to backend:', tx.hash)
+    } catch (err) {
+      console.error('[VoiceSwap] Failed to save payment:', err)
+    }
+  }
+
+  // Handle new payment detection
+  const handleNewPayment = (tx: Transaction) => {
+    playNotificationSound()
+    showBrowserNotification(tx)
+    showToast(tx)
+    // Save to backend with current concept
+    savePaymentToBackend(tx, concept)
+  }
+
+  // Fetch merchant stats
+  const fetchStats = async () => {
+    if (!address) return
+    try {
+      const res = await fetch(`${API_BASE}/voiceswap/merchant/stats/${address}`)
+      const data = await res.json()
+      if (data.success) {
+        setStats(data.data)
+      }
+    } catch (err) {
+      console.error('[VoiceSwap] Failed to fetch stats:', err)
+    }
+  }
+
+  // Export to CSV
+  const exportToCSV = () => {
+    if (transactions.length === 0) return
+
+    const headers = ['Amount (USDC)', 'From', 'Concept', 'Transaction Hash', 'Block']
+    const rows = transactions.map(tx => [
+      tx.value,
+      tx.from,
+      tx.concept || '',
+      tx.hash,
+      tx.blockNumber.toString()
+    ])
+
+    const csv = [headers, ...rows].map(row => row.join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `voiceswap-payments-${new Date().toISOString().split('T')[0]}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  // Fetch saved payments from backend to get concepts
+  const fetchSavedPayments = async (): Promise<Map<string, string>> => {
+    const conceptMap = new Map<string, string>()
+    try {
+      const res = await fetch(`${API_BASE}/voiceswap/merchant/payments/${address}`)
+      const data = await res.json()
+      if (data.success && data.data?.payments) {
+        data.data.payments.forEach((p: { tx_hash: string; concept: string | null }) => {
+          if (p.concept) {
+            conceptMap.set(p.tx_hash.toLowerCase(), p.concept)
+          }
+        })
+      }
+    } catch (err) {
+      console.error('[VoiceSwap] Failed to fetch saved payments:', err)
+    }
+    return conceptMap
+  }
+
+  // Fetch transactions with new payment detection
+  const fetchTransactions = useCallback(async (silent = false) => {
+    if (!address) return
+
+    if (!silent) {
+      setLoadingTxs(true)
+      setTxError(null)
+    }
+
+    try {
+      // Fetch on-chain data and saved concepts in parallel
+      const transferTopic = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'
+      const paddedAddress = '0x000000000000000000000000' + address.slice(2).toLowerCase()
+
+      const [blockResponse, savedConcepts] = await Promise.all([
+        fetch('https://mainnet.unichain.org', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            id: 1,
+            method: 'eth_blockNumber',
+            params: []
+          })
+        }),
+        fetchSavedPayments()
+      ])
+
+      const blockData = await blockResponse.json()
+      const currentBlock = parseInt(blockData.result, 16)
+      const fromBlock = Math.max(0, currentBlock - 9900)
+
+      const response = await fetch('https://mainnet.unichain.org', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 2,
+          method: 'eth_getLogs',
+          params: [{
+            address: USDC_CONTRACT,
+            topics: [transferTopic, null, paddedAddress],
+            fromBlock: '0x' + fromBlock.toString(16),
+            toBlock: 'latest'
+          }]
+        })
+      })
+
+      const data = await response.json()
+      if (data.error) {
+        throw new Error(data.error.message || 'Failed to fetch logs')
+      }
+
+      const logs = data.result || []
+      const txs: Transaction[] = logs.map((log: { transactionHash: string; topics: string[]; data: string; blockNumber: string }) => {
+        const from = '0x' + log.topics[1].slice(26)
+        const to = '0x' + log.topics[2].slice(26)
+        const valueHex = log.data
+        const value = (parseInt(valueHex, 16) / 1_000_000).toFixed(2)
+        const txHash = log.transactionHash.toLowerCase()
+
+        return {
+          hash: log.transactionHash,
+          from,
+          to,
+          value,
+          timestamp: 0,
+          blockNumber: parseInt(log.blockNumber, 16),
+          concept: savedConcepts.get(txHash) || undefined
+        }
+      })
+
+      txs.sort((a, b) => b.blockNumber - a.blockNumber)
+
+      // Check for new transactions
+      if (txs.length > 0) {
+        const latestTx = txs[0]
+        if (lastKnownTxHash.current && lastKnownTxHash.current !== latestTx.hash) {
+          // New payment detected!
+          const newTxs = txs.filter(tx => {
+            const existingTx = transactions.find(t => t.hash === tx.hash)
+            return !existingTx
+          })
+
+          newTxs.forEach(tx => handleNewPayment(tx))
+        }
+        lastKnownTxHash.current = latestTx.hash
+      }
+
+      setTransactions(txs.slice(0, 10))
+
+    } catch (err) {
+      console.error('[VoiceSwap] Error fetching transactions:', err)
+      if (!silent) {
+        setTxError(err instanceof Error ? err.message : 'Failed to load transactions')
+      }
+    } finally {
+      if (!silent) {
+        setLoadingTxs(false)
+      }
+    }
+  }, [address, transactions])
+
+  // Start/stop polling
+  useEffect(() => {
+    if (address && isConnected && showQR) {
+      // Start polling when QR is shown
+      setIsPolling(true)
+      fetchTransactions()
+
+      pollingIntervalRef.current = setInterval(() => {
+        fetchTransactions(true) // Silent fetch
+      }, POLLING_INTERVAL)
+    } else {
+      // Stop polling
+      setIsPolling(false)
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current)
+        pollingIntervalRef.current = null
+      }
+    }
+
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current)
+      }
+    }
+  }, [address, isConnected, showQR])
+
+  // Initial fetch when connected
+  useEffect(() => {
+    if (address && isConnected) {
+      fetchTransactions()
+    }
+  }, [address, isConnected])
+
+  const paymentUrl = address || ''
   const webUrl = address
-    ? `https://voiceswap.vercel.app/pay/${address}${amount ? `?amount=${amount}` : ''}${merchantName ? `${amount ? '&' : '?'}name=${encodeURIComponent(merchantName)}` : ''}`
+    ? `https://voiceswap.cc/pay/${address}${amount ? `?amount=${amount}` : ''}${concept ? `${amount ? '&' : '?'}name=${encodeURIComponent(concept)}` : ''}`
     : ''
 
   const copyAddress = () => {
@@ -31,190 +396,438 @@ export default function ReceivePage() {
     }
   }
 
+  const dismissToast = (id: string) => {
+    setToasts(prev => prev.filter(t => t.id !== id))
+  }
+
   return (
     <div className="min-h-screen bg-white">
+      {/* Toast Notifications */}
+      <div className="fixed top-4 right-4 z-50 space-y-2">
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            className="bg-black text-white p-4 rounded-sm shadow-lg animate-slide-in flex items-center gap-4 min-w-[300px]"
+            onClick={() => dismissToast(toast.id)}
+          >
+            <div className="w-10 h-10 bg-[#1BFFE3] rounded-full flex items-center justify-center flex-shrink-0">
+              <Check className="w-5 h-5 text-black" />
+            </div>
+            <div className="flex-1">
+              <p className="font-bold text-[#1BFFE3]">+${toast.value} USDC</p>
+              <p className="text-xs text-gray-400 font-mono">
+                From {toast.from.slice(0, 8)}...{toast.from.slice(-4)}
+              </p>
+            </div>
+            <a
+              href={`${UNICHAIN_EXPLORER}/tx/${toast.hash}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#1BFFE3] hover:underline text-xs"
+              onClick={(e) => e.stopPropagation()}
+            >
+              VIEW
+            </a>
+          </div>
+        ))}
+      </div>
+
       {/* Header */}
-      <header className="border-b-[3px] border-black">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <header className="border-b border-[#E5E5E5]">
+        <div className="max-w-4xl mx-auto px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
-            <Link href="/" className="flex items-center gap-2 font-black text-xl uppercase tracking-tighter">
-              <ArrowLeft className="w-5 h-5" strokeWidth={3} />
-              VoiceSwap
+            <Link href="/" className="flex items-center gap-3">
+              <div className="w-2 h-2 bg-[#1BFFE3] rounded-full" />
+              <span className="text-xs font-bold tracking-[0.2em] uppercase font-mono">
+                VOICESWAP
+              </span>
             </Link>
             {isConnected && (
-              <button
-                onClick={() => disconnect()}
-                className="px-4 py-2 border-[2px] border-black font-bold text-sm hover:bg-gray-100"
-              >
-                {address?.slice(0, 6)}...{address?.slice(-4)}
-              </button>
+              <div className="flex items-center gap-2">
+                {/* Sound toggle */}
+                <button
+                  onClick={toggleSound}
+                  className={`p-2 rounded-sm transition-colors ${soundEnabled ? 'text-[#1BFFE3]' : 'text-[#777777]'}`}
+                  title={soundEnabled ? 'Sound on' : 'Sound off'}
+                >
+                  {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                </button>
+
+                {/* Notification toggle */}
+                <button
+                  onClick={requestNotificationPermission}
+                  className={`p-2 rounded-sm transition-colors ${notificationsEnabled ? 'text-[#1BFFE3]' : 'text-[#777777]'}`}
+                  title={notificationsEnabled ? 'Notifications on' : 'Enable notifications'}
+                >
+                  {notificationsEnabled ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
+                </button>
+
+                <button
+                  onClick={() => disconnect()}
+                  className="px-3 py-1.5 text-[11px] font-bold tracking-[0.1em] uppercase font-mono text-[#777777] hover:text-red-500 transition-colors flex items-center gap-2"
+                >
+                  <LogOut className="w-3 h-3" />
+                  DISCONNECT
+                </button>
+              </div>
             )}
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="max-w-2xl mx-auto px-4 py-12">
-        <div className="text-center space-y-8">
-          <h1 className="text-4xl sm:text-5xl font-black uppercase tracking-tighter">
-            Receive Payments
-          </h1>
-          <p className="text-lg text-gray-600">
-            Connect your wallet to receive USDC payments on Unichain
-          </p>
+      <main className="max-w-md mx-auto px-6 py-12">
+        <div className="space-y-8">
+          {/* Page Header */}
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <div className={`w-2 h-2 rounded-full ${isPolling ? 'bg-[#1BFFE3] animate-pulse' : 'bg-[#1BFFE3]'}`} />
+              <span className="text-[11px] font-bold tracking-[0.2em] uppercase font-mono">
+                {isPolling ? 'LISTENING FOR PAYMENTS' : 'RECEIVE'}
+              </span>
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight">
+              Receive Payments
+            </h1>
+            <p className="text-sm text-[#777777] mt-2">
+              Generate a QR code to receive USDC on Unichain
+            </p>
+          </div>
 
           {!isConnected ? (
-            /* Not Connected - Show Connect Button */
+            /* Not Connected */
             <div className="space-y-6">
-              <div className="p-8 border-[3px] border-black bg-[#FFE135]" style={{ boxShadow: '6px 6px 0 black' }}>
-                <Wallet className="w-16 h-16 mx-auto mb-4" strokeWidth={2} />
-                <p className="font-bold mb-6">Connect your wallet to generate a payment QR code</p>
-                <button
-                  onClick={() => connect()}
-                  disabled={isConnecting}
-                  className="w-full px-8 py-4 bg-black text-white font-black uppercase tracking-tight text-lg hover:bg-gray-800 transition-colors disabled:opacity-50"
-                >
-                  {isConnecting ? 'Connecting...' : 'Connect Wallet'}
-                </button>
+              <div className="p-8 border border-[#E5E5E5] rounded-sm">
+                <div className="text-center space-y-4">
+                  <div className="w-12 h-12 bg-[#1BFFE3]/15 rounded-sm flex items-center justify-center mx-auto">
+                    <Wallet className="w-6 h-6 text-black" strokeWidth={2} />
+                  </div>
+                  <div>
+                    <p className="font-bold">Connect Wallet</p>
+                    <p className="text-sm text-[#777777] mt-1">
+                      Link your wallet to generate a payment QR code
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => connect()}
+                    disabled={isConnecting}
+                    className="w-full px-6 py-3 bg-[#1BFFE3] text-black text-[11px] font-bold tracking-[0.1em] uppercase font-mono hover:bg-[#66DEE0] transition-colors disabled:opacity-50"
+                  >
+                    {isConnecting ? 'CONNECTING...' : 'CONNECT WALLET'}
+                  </button>
+                </div>
               </div>
-              <p className="text-sm text-gray-500">
-                Supports MetaMask and WalletConnect wallets on Unichain (Chain ID: 130)
+              <p className="text-[11px] text-[#777777] font-mono text-center">
+                Supports WalletConnect wallets on Unichain
               </p>
             </div>
           ) : !showQR ? (
-            /* Connected - Setup Payment Details */
+            /* Connected - Setup */
             <div className="space-y-6">
-              <div className="p-4 border-[3px] border-black bg-green-100" style={{ boxShadow: '4px 4px 0 black' }}>
-                <div className="flex items-center justify-center gap-2">
-                  <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />
-                  <span className="font-bold">Connected to Unichain</span>
+              {/* Connection Status */}
+              <div className="flex items-center justify-between p-4 border border-[#E5E5E5] rounded-sm">
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-2 bg-[#1BFFE3] rounded-full animate-pulse" />
+                  <div>
+                    <p className="text-[11px] font-bold tracking-[0.1em] uppercase font-mono text-[#777777]">
+                      CONNECTED
+                    </p>
+                    <button
+                      onClick={copyAddress}
+                      className="text-sm font-mono hover:text-[#1BFFE3] transition-colors flex items-center gap-1"
+                    >
+                      {address?.slice(0, 8)}...{address?.slice(-6)}
+                      {copied ? <Check className="w-3 h-3 text-[#1BFFE3]" /> : <Copy className="w-3 h-3" />}
+                    </button>
+                  </div>
                 </div>
-                <button
-                  onClick={copyAddress}
-                  className="mt-2 flex items-center justify-center gap-2 mx-auto text-sm font-mono hover:underline"
-                >
-                  {address?.slice(0, 10)}...{address?.slice(-8)}
-                  {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
-                </button>
               </div>
 
-              <div className="p-8 border-[3px] border-black bg-[#FFE135]" style={{ boxShadow: '6px 6px 0 black' }}>
-                <div className="space-y-4 text-left">
-                  <div>
-                    <label className="block font-bold mb-2">Business Name (optional)</label>
-                    <input
-                      type="text"
-                      value={merchantName}
-                      onChange={(e) => setMerchantName(e.target.value)}
-                      placeholder="e.g. Coffee Shop"
-                      className="w-full px-4 py-3 border-[3px] border-black bg-white font-medium focus:outline-none"
-                    />
-                  </div>
+              {/* Form */}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-[11px] font-bold tracking-[0.1em] uppercase font-mono text-[#777777] mb-2">
+                    CONCEPT (OPTIONAL)
+                  </label>
+                  <input
+                    type="text"
+                    value={concept}
+                    onChange={(e) => handleConceptChange(e.target.value)}
+                    placeholder="e.g. Coffee, Lunch, Services"
+                    className="w-full px-4 py-3 border border-[#E5E5E5] text-sm font-mono focus:outline-none focus:border-[#1BFFE3] placeholder:text-[#777777]"
+                  />
+                </div>
 
-                  <div>
-                    <label className="block font-bold mb-2">Amount in USDC (optional)</label>
-                    <input
-                      type="number"
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
-                      placeholder="e.g. 25.00"
-                      step="0.01"
-                      min="0"
-                      className="w-full px-4 py-3 border-[3px] border-black bg-white font-medium focus:outline-none"
-                    />
-                  </div>
+                <div>
+                  <label className="block text-[11px] font-bold tracking-[0.1em] uppercase font-mono text-[#777777] mb-2">
+                    AMOUNT IN USDC (OPTIONAL)
+                  </label>
+                  <input
+                    type="number"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    placeholder="e.g. 25.00"
+                    step="0.01"
+                    min="0"
+                    className="w-full px-4 py-3 border border-[#E5E5E5] text-sm font-mono focus:outline-none focus:border-[#1BFFE3] placeholder:text-[#777777]"
+                  />
                 </div>
 
                 <button
                   onClick={() => setShowQR(true)}
-                  className="w-full mt-6 px-8 py-4 bg-black text-white font-black uppercase tracking-tight text-lg hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
+                  className="w-full px-6 py-3 bg-[#1BFFE3] text-black text-[11px] font-bold tracking-[0.1em] uppercase font-mono hover:bg-[#66DEE0] transition-colors flex items-center justify-center gap-2"
                 >
-                  <QrCode className="w-5 h-5" />
-                  Generate QR Code
+                  <QrCode className="w-4 h-4" />
+                  GENERATE QR CODE
                 </button>
               </div>
             </div>
           ) : (
             /* Show QR Code */
-            <div className="space-y-8">
-              {/* Wallet Info */}
-              <div className="p-4 border-[3px] border-black bg-green-100" style={{ boxShadow: '4px 4px 0 black' }}>
-                <div className="flex items-center justify-center gap-2">
-                  <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />
-                  <span className="font-bold">Ready to receive on Unichain</span>
-                </div>
-                <button
-                  onClick={copyAddress}
-                  className="mt-2 flex items-center justify-center gap-2 mx-auto text-sm font-mono hover:underline"
-                >
-                  {address?.slice(0, 10)}...{address?.slice(-8)}
-                  {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
-                </button>
+            <div className="space-y-6">
+              {/* Listening indicator */}
+              <div className="flex items-center justify-center gap-2 p-3 bg-[#1BFFE3]/10 rounded-sm">
+                <div className="w-2 h-2 bg-[#1BFFE3] rounded-full animate-pulse" />
+                <span className="text-[11px] font-bold tracking-[0.1em] uppercase font-mono">
+                  LISTENING FOR PAYMENTS
+                </span>
               </div>
 
-              {/* QR Code */}
-              <div className="p-8 border-[3px] border-black bg-white" style={{ boxShadow: '6px 6px 0 black' }}>
-                <div className="bg-white p-4 inline-block border-[2px] border-black">
+              {/* QR Code Card */}
+              <div className="p-8 border border-[#E5E5E5] rounded-sm text-center">
+                <div className="inline-block p-4 bg-white border border-[#E5E5E5]">
                   <QRCodeSVG
                     value={paymentUrl}
-                    size={220}
+                    size={200}
                     level="H"
                     marginSize={2}
                   />
                 </div>
-                <p className="mt-4 font-bold text-lg">
-                  {merchantName || 'Scan to Pay'}
-                  {amount && ` - $${amount} USDC`}
+                <p className="mt-4 font-bold">
+                  {concept || 'Scan to Pay'}
+                  {amount && <span className="text-[#1BFFE3]"> · ${amount} USDC</span>}
                 </p>
-                <p className="mt-2 text-sm text-gray-500">
-                  Customer scans with VoiceSwap app
+                <p className="mt-2 text-[11px] text-[#777777] font-mono">
+                  {address?.slice(0, 12)}...{address?.slice(-10)}
                 </p>
               </div>
 
               {/* Instructions */}
-              <div className="p-6 border-[3px] border-black bg-gray-50" style={{ boxShadow: '4px 4px 0 black' }}>
-                <h3 className="font-black uppercase mb-4 flex items-center gap-2">
-                  <Smartphone className="w-5 h-5" />
-                  How customers pay
-                </h3>
-                <ol className="text-left space-y-2 text-sm">
+              <div className="p-4 bg-[#FAFAFA] rounded-sm">
+                <p className="text-[11px] font-bold tracking-[0.1em] uppercase font-mono text-[#777777] mb-3">
+                  HOW CUSTOMERS PAY
+                </p>
+                <ol className="text-sm text-[#777777] space-y-2">
                   <li className="flex gap-2">
-                    <span className="font-black">1.</span>
-                    Customer opens VoiceSwap on their phone or glasses
+                    <span className="text-[#1BFFE3] font-bold">1.</span>
+                    Open any crypto wallet (Zerion, MetaMask, Rainbow)
                   </li>
                   <li className="flex gap-2">
-                    <span className="font-black">2.</span>
-                    Scans this QR code or says "Pay {amount ? `${amount} dollars` : 'amount'}{merchantName ? ` to ${merchantName}` : ''}"
+                    <span className="text-[#1BFFE3] font-bold">2.</span>
+                    Scan this QR code
                   </li>
                   <li className="flex gap-2">
-                    <span className="font-black">3.</span>
-                    Confirms payment in their MetaMask wallet
-                  </li>
-                  <li className="flex gap-2">
-                    <span className="font-black">4.</span>
-                    USDC arrives instantly in your wallet!
+                    <span className="text-[#1BFFE3] font-bold">3.</span>
+                    Confirm {amount ? `$${amount} USDC` : 'USDC'} payment on Unichain
                   </li>
                 </ol>
               </div>
 
               {/* Actions */}
-              <div className="flex gap-4 justify-center">
+              <div className="flex gap-3">
                 <button
                   onClick={() => setShowQR(false)}
-                  className="px-6 py-3 border-[3px] border-black font-black uppercase text-sm hover:bg-gray-100 transition-colors"
+                  className="flex-1 px-4 py-3 border border-[#E5E5E5] text-black text-[11px] font-bold tracking-[0.1em] uppercase font-mono hover:border-black transition-colors"
                 >
-                  Edit Details
+                  EDIT
                 </button>
+                <a
+                  href={`https://wa.me/?text=${encodeURIComponent(`💳 Paga con VoiceSwap\n\n${concept ? `Concepto: ${concept}\n` : ''}${amount ? `Monto: $${amount} USDC\n` : ''}Red: Unichain\nToken: USDC\n\nWallet:\n${address}`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 px-4 py-3 bg-[#25D366] text-white text-[11px] font-bold tracking-[0.1em] uppercase font-mono hover:bg-[#1DA851] transition-colors flex items-center justify-center gap-2"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                  </svg>
+                  WHATSAPP
+                </a>
+              </div>
+            </div>
+          )}
+
+          {/* Stats Dashboard */}
+          {isConnected && (
+            <div className="pt-8 border-t border-[#E5E5E5]">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-[#1BFFE3] rounded-full" />
+                  <span className="text-[11px] font-bold tracking-[0.2em] uppercase font-mono">
+                    DASHBOARD
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={exportToCSV}
+                    disabled={transactions.length === 0}
+                    className="p-1.5 hover:bg-[#FAFAFA] transition-colors disabled:opacity-50"
+                    title="Export CSV"
+                  >
+                    <Download className="w-4 h-4 text-[#777777]" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowStats(!showStats)
+                      if (!stats) fetchStats()
+                    }}
+                    className={`p-1.5 hover:bg-[#FAFAFA] transition-colors ${showStats ? 'bg-[#1BFFE3]/10' : ''}`}
+                    title="Toggle stats"
+                  >
+                    <BarChart3 className={`w-4 h-4 ${showStats ? 'text-[#1BFFE3]' : 'text-[#777777]'}`} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Stats Cards */}
+              {showStats && stats && (
+                <div className="mb-6 space-y-4">
+                  {/* Summary Cards */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="p-4 border border-[#E5E5E5] rounded-sm text-center">
+                      <p className="text-2xl font-bold text-[#1BFFE3]">${stats.totalAmount}</p>
+                      <p className="text-[10px] font-bold tracking-[0.1em] uppercase font-mono text-[#777777] mt-1">
+                        TOTAL USDC
+                      </p>
+                    </div>
+                    <div className="p-4 border border-[#E5E5E5] rounded-sm text-center">
+                      <p className="text-2xl font-bold">{stats.totalPayments}</p>
+                      <p className="text-[10px] font-bold tracking-[0.1em] uppercase font-mono text-[#777777] mt-1">
+                        PAYMENTS
+                      </p>
+                    </div>
+                    <div className="p-4 border border-[#E5E5E5] rounded-sm text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <Users className="w-5 h-5 text-[#777777]" />
+                        <p className="text-2xl font-bold">{stats.uniquePayers}</p>
+                      </div>
+                      <p className="text-[10px] font-bold tracking-[0.1em] uppercase font-mono text-[#777777] mt-1">
+                        PAYERS
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Concept Breakdown */}
+                  {stats.conceptBreakdown.length > 0 && (
+                    <div className="border border-[#E5E5E5] rounded-sm">
+                      <div className="p-3 border-b border-[#E5E5E5]">
+                        <p className="text-[10px] font-bold tracking-[0.1em] uppercase font-mono text-[#777777]">
+                          BY CONCEPT
+                        </p>
+                      </div>
+                      <div className="divide-y divide-[#E5E5E5]">
+                        {stats.conceptBreakdown.map((item, idx) => (
+                          <div key={idx} className="p-3 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-0.5 bg-[#1BFFE3]/10 text-[10px] font-bold tracking-[0.05em] uppercase font-mono text-black rounded-sm">
+                                {item.concept}
+                              </span>
+                              <span className="text-[11px] text-[#777777] font-mono">
+                                {item.count} {item.count === 1 ? 'payment' : 'payments'}
+                              </span>
+                            </div>
+                            <p className="font-bold text-[#1BFFE3]">${item.total}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Loading stats */}
+              {showStats && !stats && (
+                <div className="mb-6 p-8 border border-[#E5E5E5] rounded-sm text-center">
+                  <RefreshCw className="w-5 h-5 animate-spin mx-auto text-[#777777]" />
+                  <p className="text-sm text-[#777777] mt-2">Loading stats...</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Transaction History */}
+          {isConnected && (
+            <div className="pt-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-black rounded-full" />
+                  <span className="text-[11px] font-bold tracking-[0.2em] uppercase font-mono">
+                    RECENT PAYMENTS
+                  </span>
+                </div>
                 <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(webUrl)
-                    setCopied(true)
-                    setTimeout(() => setCopied(false), 2000)
-                  }}
-                  className="px-6 py-3 bg-black text-white border-[3px] border-black font-black uppercase text-sm hover:bg-gray-800 transition-colors"
+                  onClick={() => fetchTransactions()}
+                  disabled={loadingTxs}
+                  className="p-1.5 hover:bg-[#FAFAFA] transition-colors disabled:opacity-50"
+                  title="Refresh"
                 >
-                  Copy Link
+                  <RefreshCw className={`w-4 h-4 text-[#777777] ${loadingTxs ? 'animate-spin' : ''}`} />
                 </button>
+              </div>
+
+              <div className="border border-[#E5E5E5] rounded-sm">
+                {loadingTxs ? (
+                  <div className="p-8 text-center">
+                    <RefreshCw className="w-5 h-5 animate-spin mx-auto text-[#777777]" />
+                    <p className="text-sm text-[#777777] mt-2">Loading...</p>
+                  </div>
+                ) : txError ? (
+                  <div className="p-8 text-center">
+                    <p className="text-sm text-red-500">{txError}</p>
+                    <button
+                      onClick={() => fetchTransactions()}
+                      className="mt-2 text-sm text-[#1BFFE3] hover:underline"
+                    >
+                      Try again
+                    </button>
+                  </div>
+                ) : transactions.length === 0 ? (
+                  <div className="p-8 text-center">
+                    <p className="text-sm text-[#777777]">No payments received yet</p>
+                    <p className="text-[11px] text-[#777777] mt-1 font-mono">
+                      Payments will appear here
+                    </p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-[#E5E5E5]">
+                    {transactions.map((tx, index) => (
+                      <div key={tx.hash + index} className="p-4 hover:bg-[#FAFAFA] transition-colors">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="font-bold text-[#1BFFE3]">+${tx.value} USDC</p>
+                              {tx.concept && (
+                                <span className="px-2 py-0.5 bg-[#1BFFE3]/10 text-[10px] font-bold tracking-[0.05em] uppercase font-mono text-black rounded-sm">
+                                  {tx.concept}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-[#777777] font-mono mt-1">
+                              {tx.from.slice(0, 8)}...{tx.from.slice(-6)}
+                            </p>
+                          </div>
+                          <a
+                            href={`${UNICHAIN_EXPLORER}/tx/${tx.hash}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[11px] font-mono text-[#777777] hover:text-[#1BFFE3] transition-colors flex items-center gap-1 flex-shrink-0"
+                          >
+                            VIEW <ExternalLink className="w-3 h-3" />
+                          </a>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -222,12 +835,30 @@ export default function ReceivePage() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t-[3px] border-black mt-12">
-        <div className="max-w-7xl mx-auto px-4 py-6 text-center">
-          <p className="font-bold">Powered by Unichain</p>
-          <p className="text-sm text-gray-500 mt-1">Fast, cheap USDC payments</p>
+      <footer className="border-t border-[#E5E5E5] mt-12">
+        <div className="max-w-4xl mx-auto px-6 py-6 text-center">
+          <p className="text-[11px] font-medium tracking-[0.05em] uppercase text-[#777777] font-mono">
+            POWERED BY UNICHAIN
+          </p>
         </div>
       </footer>
+
+      {/* CSS for toast animation */}
+      <style jsx global>{`
+        @keyframes slide-in {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+        .animate-slide-in {
+          animation: slide-in 0.3s ease-out;
+        }
+      `}</style>
     </div>
   )
 }
