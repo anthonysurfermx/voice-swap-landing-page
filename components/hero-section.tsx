@@ -7,9 +7,9 @@ export function HeroSection() {
       <div className="space-y-8">
         {/* Status indicator */}
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 bg-[#1BFFE3] rounded-full animate-pulse" />
+          <div className="w-2 h-2 bg-[#836EF9] rounded-full animate-pulse" />
           <span className="text-[11px] font-medium tracking-[0.1em] uppercase font-mono text-[#777777]">
-            META RAY-BAN • UNICHAIN
+            META RAY-BAN • MONAD
           </span>
         </div>
 
@@ -23,7 +23,7 @@ export function HeroSection() {
         {/* Tagline */}
         <p className="text-base lg:text-lg text-[#777777] max-w-md leading-relaxed">
           Scan a QR code, say the amount, confirm with your voice.
-          Instant USDC payments on Unichain — no phone needed.
+          Instant USDC payments on Monad — no phone needed.
         </p>
 
         {/* CTA buttons - minimal style */}
@@ -32,12 +32,12 @@ export function HeroSection() {
           <div className="relative">
             <button
               disabled
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-[#1BFFE3]/50 text-black/50 text-[11px] font-bold tracking-[0.1em] uppercase font-mono cursor-not-allowed"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-[#836EF9]/50 text-white/50 text-[11px] font-bold tracking-[0.1em] uppercase font-mono cursor-not-allowed"
             >
               <Glasses className="w-4 h-4" strokeWidth={2} />
               GET THE APP
             </button>
-            <span className="absolute -top-2 -right-2 px-2 py-0.5 bg-black text-white text-[9px] font-bold tracking-[0.1em] uppercase font-mono">
+            <span className="absolute -top-2 -right-2 px-2 py-0.5 bg-black text-white text-[9px] font-bold tracking-[0.1em] uppercase font-mono rounded-sm">
               SOON
             </span>
           </div>
@@ -47,7 +47,7 @@ export function HeroSection() {
         {/* Stats row - Interfacer minimal */}
         <div className="flex gap-12 pt-8 border-t border-[#E5E5E5]">
           <div>
-            <p className="text-2xl font-bold">$0</p>
+            <p className="text-2xl font-bold">~$0</p>
             <p className="text-[11px] font-medium tracking-[0.05em] uppercase text-[#777777] font-mono">Gas fees</p>
           </div>
           <div>

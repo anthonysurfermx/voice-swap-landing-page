@@ -4,7 +4,7 @@ const features = [
   {
     icon: Mic,
     title: "Voice First",
-    description: "Control payments with natural voice commands in English or Spanish",
+    description: "Gemini-powered AI understands natural voice commands in English or Spanish",
   },
   {
     icon: DollarSign,
@@ -14,7 +14,7 @@ const features = [
   {
     icon: RefreshCw,
     title: "Auto-Swap",
-    description: "Pay with ETH, we swap to USDC automatically via Uniswap",
+    description: "Pay with MON or WMON, we swap to USDC automatically via Uniswap",
   },
   {
     icon: Glasses,
@@ -23,13 +23,13 @@ const features = [
   },
   {
     icon: Zap,
-    title: "Unichain L2",
-    description: "Fast & cheap transactions, near-zero gas fees",
+    title: "Monad L1",
+    description: "10,000 TPS, 1-second finality, ~$0.001 gas fees",
   },
   {
     icon: Shield,
     title: "Non-Custodial",
-    description: "WalletConnect integration, your keys stay with you",
+    description: "Your keys, your wallet. Full control of your funds at all times",
   },
 ]
 
@@ -51,7 +51,7 @@ export function FeaturesGrid() {
             return (
               <div key={index} className="space-y-3">
                 {/* Icon */}
-                <div className="w-10 h-10 bg-[#1BFFE3]/15 rounded-sm flex items-center justify-center">
+                <div className="w-10 h-10 bg-[#836EF9]/15 rounded-sm flex items-center justify-center">
                   <Icon className="w-5 h-5 text-black" strokeWidth={2} />
                 </div>
 

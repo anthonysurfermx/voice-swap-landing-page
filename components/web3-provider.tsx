@@ -4,12 +4,12 @@ import { createContext, useContext, useState, useEffect, ReactNode, useCallback 
 import { BrowserProvider, JsonRpcSigner } from 'ethers'
 import EthereumProvider from '@walletconnect/ethereum-provider'
 
-// Unichain configuration
-const UNICHAIN_CONFIG = {
-  chainId: 130,
-  chainName: 'Unichain',
-  rpcUrl: 'https://mainnet.unichain.org',
-  blockExplorer: 'https://uniscan.xyz',
+// Monad configuration
+const MONAD_CONFIG = {
+  chainId: 143,
+  chainName: 'Monad',
+  rpcUrl: 'https://rpc.monad.xyz',
+  blockExplorer: 'https://monadscan.com',
   nativeCurrency: {
     name: 'Ether',
     symbol: 'ETH',
@@ -86,7 +86,7 @@ export function Web3Provider({ children }: { children: ReactNode }) {
 
         const ethereumProvider = await EthereumProvider.init({
           projectId: PROJECT_ID,
-          chains: [UNICHAIN_CONFIG.chainId],
+          chains: [MONAD_CONFIG.chainId],
           showQrModal: true,
           metadata: {
             name: 'VoiceSwap',
@@ -95,7 +95,7 @@ export function Web3Provider({ children }: { children: ReactNode }) {
             icons: ['https://voiceswap.cc/icon.png'],
           },
           rpcMap: {
-            [UNICHAIN_CONFIG.chainId]: UNICHAIN_CONFIG.rpcUrl,
+            [MONAD_CONFIG.chainId]: MONAD_CONFIG.rpcUrl,
           },
           // Show recommended wallets including Uniswap Wallet
           qrModalOptions: {

@@ -6,11 +6,9 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { Wallet, Copy, Check, QrCode, LogOut, RefreshCw, ExternalLink, Bell, BellOff, Volume2, VolumeX, BarChart3, Download, Users } from 'lucide-react'
 
-// USDC contract on Unichain
-const USDC_CONTRACT = '0x078D782b760474a361dDA0AF3839290b0EF57AD6'
-const UNICHAIN_EXPLORER = 'https://uniscan.xyz'
+const MONAD_EXPLORER = 'https://monadscan.com'
 const POLLING_INTERVAL = 10000 // 10 seconds
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://voiceswap-api.vercel.app'
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://voiceswap.vercel.app'
 
 interface Transaction {
   hash: string
@@ -20,6 +18,14 @@ interface Transaction {
   timestamp: number
   blockNumber: number
   concept?: string
+}
+
+interface WalletBalance {
+  nativeMON: { symbol: string; balance: string }
+  tokens: { symbol: string; balance: string }[]
+  totalUSDC: string
+  totalUSD: string
+  monPriceUSD: number
 }
 
 interface NewPaymentToast {
@@ -54,6 +60,9 @@ export default function ReceivePage() {
   const [isPolling, setIsPolling] = useState(false)
   const [stats, setStats] = useState<MerchantStats | null>(null)
   const [showStats, setShowStats] = useState(false)
+  const [walletBalance, setWalletBalance] = useState<WalletBalance | null>(null)
+  const [mxnRate, setMxnRate] = useState<number | null>(null)
+  const [showMXN, setShowMXN] = useState(false)
 
   // Refs for tracking
   const lastKnownTxHash = useRef<string | null>(null)
@@ -136,7 +145,7 @@ export default function ReceivePage() {
       })
 
       notification.onclick = () => {
-        window.open(`${UNICHAIN_EXPLORER}/tx/${tx.hash}`, '_blank')
+        window.open(`${MONAD_EXPLORER}/tx/${tx.hash}`, '_blank')
         notification.close()
       }
 
@@ -205,6 +214,42 @@ export default function ReceivePage() {
     }
   }
 
+  // Fetch wallet balance from backend
+  const fetchBalance = async () => {
+    if (!address) return
+    try {
+      const res = await fetch(`${API_BASE}/voiceswap/balance/${address}`)
+      const data = await res.json()
+      if (data.success && data.data?.nativeMON) {
+        setWalletBalance(data.data)
+      }
+    } catch (err) {
+      console.error('[VoiceSwap] Failed to fetch balance:', err)
+    }
+  }
+
+  // Fetch USD/MXN exchange rate
+  const fetchMXNRate = async () => {
+    try {
+      const res = await fetch('https://api.exchangerate-api.com/v4/latest/USD')
+      const data = await res.json()
+      if (data.rates?.MXN) {
+        setMxnRate(data.rates.MXN)
+      }
+    } catch (err) {
+      console.error('[VoiceSwap] Failed to fetch MXN rate:', err)
+    }
+  }
+
+  // Format currency display
+  const formatBalance = (usdValue: string | number) => {
+    const usd = typeof usdValue === 'string' ? parseFloat(usdValue) : usdValue
+    if (showMXN && mxnRate) {
+      return `$${(usd * mxnRate).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MXN`
+    }
+    return `$${usd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD`
+  }
+
   // Export to CSV
   const exportToCSV = () => {
     if (transactions.length === 0) return
@@ -247,7 +292,7 @@ export default function ReceivePage() {
     return conceptMap
   }
 
-  // Fetch transactions with new payment detection
+  // Fetch transactions from Blockscout API (more reliable than RPC)
   const fetchTransactions = useCallback(async (silent = false) => {
     if (!address) return
 
@@ -257,69 +302,36 @@ export default function ReceivePage() {
     }
 
     try {
-      // Fetch on-chain data and saved concepts in parallel
-      const transferTopic = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'
-      const paddedAddress = '0x000000000000000000000000' + address.slice(2).toLowerCase()
-
-      const [blockResponse, savedConcepts] = await Promise.all([
-        fetch('https://mainnet.unichain.org', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            jsonrpc: '2.0',
-            id: 1,
-            method: 'eth_blockNumber',
-            params: []
-          })
-        }),
+      // Fetch from our API that uses Blockscout + saved concepts
+      const [apiResponse, savedConcepts] = await Promise.all([
+        fetch(`${API_BASE}/voiceswap/merchant/transactions/${address}`),
         fetchSavedPayments()
       ])
 
-      const blockData = await blockResponse.json()
-      const currentBlock = parseInt(blockData.result, 16)
-      const fromBlock = Math.max(0, currentBlock - 9900)
+      const apiData = await apiResponse.json()
 
-      const response = await fetch('https://mainnet.unichain.org', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jsonrpc: '2.0',
-          id: 2,
-          method: 'eth_getLogs',
-          params: [{
-            address: USDC_CONTRACT,
-            topics: [transferTopic, null, paddedAddress],
-            fromBlock: '0x' + fromBlock.toString(16),
-            toBlock: 'latest'
-          }]
-        })
-      })
-
-      const data = await response.json()
-      if (data.error) {
-        throw new Error(data.error.message || 'Failed to fetch logs')
+      if (!apiData.success) {
+        throw new Error(apiData.error || 'Failed to fetch transactions')
       }
 
-      const logs = data.result || []
-      const txs: Transaction[] = logs.map((log: { transactionHash: string; topics: string[]; data: string; blockNumber: string }) => {
-        const from = '0x' + log.topics[1].slice(26)
-        const to = '0x' + log.topics[2].slice(26)
-        const valueHex = log.data
-        const value = (parseInt(valueHex, 16) / 1_000_000).toFixed(2)
-        const txHash = log.transactionHash.toLowerCase()
-
+      const txs: Transaction[] = (apiData.data?.transactions || []).map((tx: {
+        txHash: string
+        fromAddress: string
+        amount: string
+        timestamp: string
+        blockNumber: number
+      }) => {
+        const txHash = tx.txHash.toLowerCase()
         return {
-          hash: log.transactionHash,
-          from,
-          to,
-          value,
-          timestamp: 0,
-          blockNumber: parseInt(log.blockNumber, 16),
+          hash: tx.txHash,
+          from: tx.fromAddress,
+          to: address,
+          value: tx.amount,
+          timestamp: new Date(tx.timestamp).getTime(),
+          blockNumber: tx.blockNumber,
           concept: savedConcepts.get(txHash) || undefined
         }
       })
-
-      txs.sort((a, b) => b.blockNumber - a.blockNumber)
 
       // Check for new transactions
       if (txs.length > 0) {
@@ -380,6 +392,8 @@ export default function ReceivePage() {
   useEffect(() => {
     if (address && isConnected) {
       fetchTransactions()
+      fetchBalance()
+      fetchMXNRate()
     }
   }, [address, isConnected])
 
@@ -410,20 +424,27 @@ export default function ReceivePage() {
             className="bg-black text-white p-4 rounded-sm shadow-lg animate-slide-in flex items-center gap-4 min-w-[300px]"
             onClick={() => dismissToast(toast.id)}
           >
-            <div className="w-10 h-10 bg-[#1BFFE3] rounded-full flex items-center justify-center flex-shrink-0">
+            <div className="w-10 h-10 bg-[#836EF9] rounded-full flex items-center justify-center flex-shrink-0">
               <Check className="w-5 h-5 text-black" />
             </div>
             <div className="flex-1">
-              <p className="font-bold text-[#1BFFE3]">+${toast.value} USDC</p>
+              <p className="font-bold text-[#836EF9]">
+                +${toast.value} USDC
+                {showMXN && mxnRate && (
+                  <span className="text-xs text-gray-400 ml-1">
+                    ≈ ${(parseFloat(toast.value) * mxnRate).toFixed(2)} MXN
+                  </span>
+                )}
+              </p>
               <p className="text-xs text-gray-400 font-mono">
                 From {toast.from.slice(0, 8)}...{toast.from.slice(-4)}
               </p>
             </div>
             <a
-              href={`${UNICHAIN_EXPLORER}/tx/${toast.hash}`}
+              href={`${MONAD_EXPLORER}/tx/${toast.hash}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[#1BFFE3] hover:underline text-xs"
+              className="text-[#836EF9] hover:underline text-xs"
               onClick={(e) => e.stopPropagation()}
             >
               VIEW
@@ -437,7 +458,7 @@ export default function ReceivePage() {
         <div className="max-w-4xl mx-auto px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <Link href="/" className="flex items-center gap-3">
-              <div className="w-2 h-2 bg-[#1BFFE3] rounded-full" />
+              <div className="w-2 h-2 bg-[#836EF9] rounded-full" />
               <span className="text-xs font-bold tracking-[0.2em] uppercase font-mono">
                 VOICESWAP
               </span>
@@ -447,7 +468,7 @@ export default function ReceivePage() {
                 {/* Sound toggle */}
                 <button
                   onClick={toggleSound}
-                  className={`p-2 rounded-sm transition-colors ${soundEnabled ? 'text-[#1BFFE3]' : 'text-[#777777]'}`}
+                  className={`p-2 rounded-sm transition-colors ${soundEnabled ? 'text-[#836EF9]' : 'text-[#777777]'}`}
                   title={soundEnabled ? 'Sound on' : 'Sound off'}
                 >
                   {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
@@ -456,7 +477,7 @@ export default function ReceivePage() {
                 {/* Notification toggle */}
                 <button
                   onClick={requestNotificationPermission}
-                  className={`p-2 rounded-sm transition-colors ${notificationsEnabled ? 'text-[#1BFFE3]' : 'text-[#777777]'}`}
+                  className={`p-2 rounded-sm transition-colors ${notificationsEnabled ? 'text-[#836EF9]' : 'text-[#777777]'}`}
                   title={notificationsEnabled ? 'Notifications on' : 'Enable notifications'}
                 >
                   {notificationsEnabled ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
@@ -481,7 +502,7 @@ export default function ReceivePage() {
           {/* Page Header */}
           <div>
             <div className="flex items-center gap-2 mb-3">
-              <div className={`w-2 h-2 rounded-full ${isPolling ? 'bg-[#1BFFE3] animate-pulse' : 'bg-[#1BFFE3]'}`} />
+              <div className={`w-2 h-2 rounded-full ${isPolling ? 'bg-[#836EF9] animate-pulse' : 'bg-[#836EF9]'}`} />
               <span className="text-[11px] font-bold tracking-[0.2em] uppercase font-mono">
                 {isPolling ? 'LISTENING FOR PAYMENTS' : 'RECEIVE'}
               </span>
@@ -490,7 +511,7 @@ export default function ReceivePage() {
               Receive Payments
             </h1>
             <p className="text-sm text-[#777777] mt-2">
-              Generate a QR code to receive USDC on Unichain
+              Generate a QR code to receive USDC on Monad
             </p>
           </div>
 
@@ -499,7 +520,7 @@ export default function ReceivePage() {
             <div className="space-y-6">
               <div className="p-8 border border-[#E5E5E5] rounded-sm">
                 <div className="text-center space-y-4">
-                  <div className="w-12 h-12 bg-[#1BFFE3]/15 rounded-sm flex items-center justify-center mx-auto">
+                  <div className="w-12 h-12 bg-[#836EF9]/15 rounded-sm flex items-center justify-center mx-auto">
                     <Wallet className="w-6 h-6 text-black" strokeWidth={2} />
                   </div>
                   <div>
@@ -511,14 +532,14 @@ export default function ReceivePage() {
                   <button
                     onClick={() => connect()}
                     disabled={isConnecting}
-                    className="w-full px-6 py-3 bg-[#1BFFE3] text-black text-[11px] font-bold tracking-[0.1em] uppercase font-mono hover:bg-[#66DEE0] transition-colors disabled:opacity-50"
+                    className="w-full px-6 py-3 bg-[#836EF9] text-white text-[11px] font-bold tracking-[0.1em] uppercase font-mono hover:bg-[#A18FFF] transition-colors disabled:opacity-50"
                   >
                     {isConnecting ? 'CONNECTING...' : 'CONNECT WALLET'}
                   </button>
                 </div>
               </div>
               <p className="text-[11px] text-[#777777] font-mono text-center">
-                Supports WalletConnect wallets on Unichain
+                Supports WalletConnect wallets on Monad
               </p>
             </div>
           ) : !showQR ? (
@@ -527,21 +548,60 @@ export default function ReceivePage() {
               {/* Connection Status */}
               <div className="flex items-center justify-between p-4 border border-[#E5E5E5] rounded-sm">
                 <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 bg-[#1BFFE3] rounded-full animate-pulse" />
+                  <div className="w-2 h-2 bg-[#836EF9] rounded-full animate-pulse" />
                   <div>
                     <p className="text-[11px] font-bold tracking-[0.1em] uppercase font-mono text-[#777777]">
                       CONNECTED
                     </p>
                     <button
                       onClick={copyAddress}
-                      className="text-sm font-mono hover:text-[#1BFFE3] transition-colors flex items-center gap-1"
+                      className="text-sm font-mono hover:text-[#836EF9] transition-colors flex items-center gap-1"
                     >
                       {address?.slice(0, 8)}...{address?.slice(-6)}
-                      {copied ? <Check className="w-3 h-3 text-[#1BFFE3]" /> : <Copy className="w-3 h-3" />}
+                      {copied ? <Check className="w-3 h-3 text-[#836EF9]" /> : <Copy className="w-3 h-3" />}
                     </button>
                   </div>
                 </div>
               </div>
+
+              {/* Wallet Balance */}
+              {walletBalance && walletBalance.nativeMON && (
+                <div className="p-4 border border-[#E5E5E5] rounded-sm">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-[11px] font-bold tracking-[0.1em] uppercase font-mono text-[#777777]">
+                      BALANCE
+                    </span>
+                    <button
+                      onClick={() => setShowMXN(!showMXN)}
+                      className="text-[10px] font-bold tracking-[0.05em] uppercase font-mono px-2 py-0.5 border border-[#E5E5E5] rounded-sm hover:border-[#836EF9] transition-colors"
+                    >
+                      {showMXN ? 'USD' : 'MXN'}
+                    </button>
+                  </div>
+                  <p className="text-2xl font-bold">
+                    {formatBalance(walletBalance.totalUSD)}
+                  </p>
+                  <div className="mt-3 space-y-1.5">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-mono text-[#777777]">MON</span>
+                      <span className="font-mono">{parseFloat(walletBalance.nativeMON.balance || '0').toFixed(4)}</span>
+                    </div>
+                    {(walletBalance.tokens || []).map((token) => (
+                      <div key={token.symbol} className="flex items-center justify-between text-sm">
+                        <span className="font-mono text-[#777777]">{token.symbol}</span>
+                        <span className="font-mono">{parseFloat(token.balance || '0').toFixed(token.symbol === 'USDC' ? 2 : 4)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {walletBalance.monPriceUSD > 0 && (
+                    <p className="text-[10px] text-[#777777] font-mono mt-2">
+                      1 MON = {showMXN && mxnRate
+                        ? `$${(walletBalance.monPriceUSD * mxnRate).toFixed(2)} MXN`
+                        : `$${walletBalance.monPriceUSD.toFixed(2)} USD`}
+                    </p>
+                  )}
+                </div>
+              )}
 
               {/* Form */}
               <div className="space-y-4">
@@ -554,7 +614,7 @@ export default function ReceivePage() {
                     value={concept}
                     onChange={(e) => handleConceptChange(e.target.value)}
                     placeholder="e.g. Coffee, Lunch, Services"
-                    className="w-full px-4 py-3 border border-[#E5E5E5] text-sm font-mono focus:outline-none focus:border-[#1BFFE3] placeholder:text-[#777777]"
+                    className="w-full px-4 py-3 border border-[#E5E5E5] text-sm font-mono focus:outline-none focus:border-[#836EF9] placeholder:text-[#777777]"
                   />
                 </div>
 
@@ -569,13 +629,13 @@ export default function ReceivePage() {
                     placeholder="e.g. 25.00"
                     step="0.01"
                     min="0"
-                    className="w-full px-4 py-3 border border-[#E5E5E5] text-sm font-mono focus:outline-none focus:border-[#1BFFE3] placeholder:text-[#777777]"
+                    className="w-full px-4 py-3 border border-[#E5E5E5] text-sm font-mono focus:outline-none focus:border-[#836EF9] placeholder:text-[#777777]"
                   />
                 </div>
 
                 <button
                   onClick={() => setShowQR(true)}
-                  className="w-full px-6 py-3 bg-[#1BFFE3] text-black text-[11px] font-bold tracking-[0.1em] uppercase font-mono hover:bg-[#66DEE0] transition-colors flex items-center justify-center gap-2"
+                  className="w-full px-6 py-3 bg-[#836EF9] text-white text-[11px] font-bold tracking-[0.1em] uppercase font-mono hover:bg-[#A18FFF] transition-colors flex items-center justify-center gap-2"
                 >
                   <QrCode className="w-4 h-4" />
                   GENERATE QR CODE
@@ -586,8 +646,8 @@ export default function ReceivePage() {
             /* Show QR Code */
             <div className="space-y-6">
               {/* Listening indicator */}
-              <div className="flex items-center justify-center gap-2 p-3 bg-[#1BFFE3]/10 rounded-sm">
-                <div className="w-2 h-2 bg-[#1BFFE3] rounded-full animate-pulse" />
+              <div className="flex items-center justify-center gap-2 p-3 bg-[#836EF9]/10 rounded-sm">
+                <div className="w-2 h-2 bg-[#836EF9] rounded-full animate-pulse" />
                 <span className="text-[11px] font-bold tracking-[0.1em] uppercase font-mono">
                   LISTENING FOR PAYMENTS
                 </span>
@@ -605,7 +665,7 @@ export default function ReceivePage() {
                 </div>
                 <p className="mt-4 font-bold">
                   {concept || 'Scan to Pay'}
-                  {amount && <span className="text-[#1BFFE3]"> · ${amount} USDC</span>}
+                  {amount && <span className="text-[#836EF9]"> · ${amount} USDC</span>}
                 </p>
                 <p className="mt-2 text-[11px] text-[#777777] font-mono">
                   {address?.slice(0, 12)}...{address?.slice(-10)}
@@ -619,16 +679,16 @@ export default function ReceivePage() {
                 </p>
                 <ol className="text-sm text-[#777777] space-y-2">
                   <li className="flex gap-2">
-                    <span className="text-[#1BFFE3] font-bold">1.</span>
+                    <span className="text-[#836EF9] font-bold">1.</span>
                     Open any crypto wallet (Zerion, MetaMask, Rainbow)
                   </li>
                   <li className="flex gap-2">
-                    <span className="text-[#1BFFE3] font-bold">2.</span>
+                    <span className="text-[#836EF9] font-bold">2.</span>
                     Scan this QR code
                   </li>
                   <li className="flex gap-2">
-                    <span className="text-[#1BFFE3] font-bold">3.</span>
-                    Confirm {amount ? `$${amount} USDC` : 'USDC'} payment on Unichain
+                    <span className="text-[#836EF9] font-bold">3.</span>
+                    Confirm {amount ? `$${amount} USDC` : 'USDC'} payment on Monad
                   </li>
                 </ol>
               </div>
@@ -642,7 +702,7 @@ export default function ReceivePage() {
                   EDIT
                 </button>
                 <a
-                  href={`https://wa.me/?text=${encodeURIComponent(`💳 Paga con VoiceSwap\n\n${concept ? `Concepto: ${concept}\n` : ''}${amount ? `Monto: $${amount} USDC\n` : ''}Red: Unichain\nToken: USDC\n\nWallet:\n${address}`)}`}
+                  href={`https://wa.me/?text=${encodeURIComponent(`💳 Paga con VoiceSwap\n\n${concept ? `Concepto: ${concept}\n` : ''}${amount ? `Monto: $${amount} USDC\n` : ''}Red: Monad\nToken: USDC\n\nWallet:\n${address}`)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex-1 px-4 py-3 bg-[#25D366] text-white text-[11px] font-bold tracking-[0.1em] uppercase font-mono hover:bg-[#1DA851] transition-colors flex items-center justify-center gap-2"
@@ -661,7 +721,7 @@ export default function ReceivePage() {
             <div className="pt-8 border-t border-[#E5E5E5]">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-[#1BFFE3] rounded-full" />
+                  <div className="w-2 h-2 bg-[#836EF9] rounded-full" />
                   <span className="text-[11px] font-bold tracking-[0.2em] uppercase font-mono">
                     DASHBOARD
                   </span>
@@ -680,10 +740,10 @@ export default function ReceivePage() {
                       setShowStats(!showStats)
                       if (!stats) fetchStats()
                     }}
-                    className={`p-1.5 hover:bg-[#FAFAFA] transition-colors ${showStats ? 'bg-[#1BFFE3]/10' : ''}`}
+                    className={`p-1.5 hover:bg-[#FAFAFA] transition-colors ${showStats ? 'bg-[#836EF9]/10' : ''}`}
                     title="Toggle stats"
                   >
-                    <BarChart3 className={`w-4 h-4 ${showStats ? 'text-[#1BFFE3]' : 'text-[#777777]'}`} />
+                    <BarChart3 className={`w-4 h-4 ${showStats ? 'text-[#836EF9]' : 'text-[#777777]'}`} />
                   </button>
                 </div>
               </div>
@@ -694,9 +754,9 @@ export default function ReceivePage() {
                   {/* Summary Cards */}
                   <div className="grid grid-cols-3 gap-3">
                     <div className="p-4 border border-[#E5E5E5] rounded-sm text-center">
-                      <p className="text-2xl font-bold text-[#1BFFE3]">${stats.totalAmount}</p>
+                      <p className="text-2xl font-bold text-[#836EF9]">{formatBalance(stats.totalAmount)}</p>
                       <p className="text-[10px] font-bold tracking-[0.1em] uppercase font-mono text-[#777777] mt-1">
-                        TOTAL USDC
+                        TOTAL
                       </p>
                     </div>
                     <div className="p-4 border border-[#E5E5E5] rounded-sm text-center">
@@ -728,14 +788,14 @@ export default function ReceivePage() {
                         {stats.conceptBreakdown.map((item, idx) => (
                           <div key={idx} className="p-3 flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              <span className="px-2 py-0.5 bg-[#1BFFE3]/10 text-[10px] font-bold tracking-[0.05em] uppercase font-mono text-black rounded-sm">
+                              <span className="px-2 py-0.5 bg-[#836EF9]/10 text-[10px] font-bold tracking-[0.05em] uppercase font-mono text-black rounded-sm">
                                 {item.concept}
                               </span>
                               <span className="text-[11px] text-[#777777] font-mono">
                                 {item.count} {item.count === 1 ? 'payment' : 'payments'}
                               </span>
                             </div>
-                            <p className="font-bold text-[#1BFFE3]">${item.total}</p>
+                            <p className="font-bold text-[#836EF9]">${item.total}</p>
                           </div>
                         ))}
                       </div>
@@ -785,7 +845,7 @@ export default function ReceivePage() {
                     <p className="text-sm text-red-500">{txError}</p>
                     <button
                       onClick={() => fetchTransactions()}
-                      className="mt-2 text-sm text-[#1BFFE3] hover:underline"
+                      className="mt-2 text-sm text-[#836EF9] hover:underline"
                     >
                       Try again
                     </button>
@@ -803,23 +863,33 @@ export default function ReceivePage() {
                       <div key={tx.hash + index} className="p-4 hover:bg-[#FAFAFA] transition-colors">
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <p className="font-bold text-[#1BFFE3]">+${tx.value} USDC</p>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="font-bold text-[#836EF9]">+${tx.value} USDC</p>
+                              {showMXN && mxnRate && (
+                                <span className="text-[11px] text-[#777777] font-mono">
+                                  ≈ ${(parseFloat(tx.value) * mxnRate).toFixed(2)} MXN
+                                </span>
+                              )}
                               {tx.concept && (
-                                <span className="px-2 py-0.5 bg-[#1BFFE3]/10 text-[10px] font-bold tracking-[0.05em] uppercase font-mono text-black rounded-sm">
+                                <span className="px-2 py-0.5 bg-[#836EF9]/10 text-[10px] font-bold tracking-[0.05em] uppercase font-mono text-black rounded-sm">
                                   {tx.concept}
                                 </span>
                               )}
                             </div>
-                            <p className="text-[11px] text-[#777777] font-mono mt-1">
-                              {tx.from.slice(0, 8)}...{tx.from.slice(-6)}
-                            </p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="px-1.5 py-0.5 bg-[#836EF9]/10 text-[9px] font-bold tracking-[0.05em] uppercase font-mono text-[#836EF9] rounded-sm">
+                                MONAD
+                              </span>
+                              <p className="text-[11px] text-[#777777] font-mono">
+                                {tx.from.slice(0, 8)}...{tx.from.slice(-6)}
+                              </p>
+                            </div>
                           </div>
                           <a
-                            href={`${UNICHAIN_EXPLORER}/tx/${tx.hash}`}
+                            href={`${MONAD_EXPLORER}/tx/${tx.hash}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-[11px] font-mono text-[#777777] hover:text-[#1BFFE3] transition-colors flex items-center gap-1 flex-shrink-0"
+                            className="text-[11px] font-mono text-[#777777] hover:text-[#836EF9] transition-colors flex items-center gap-1 flex-shrink-0"
                           >
                             VIEW <ExternalLink className="w-3 h-3" />
                           </a>
@@ -838,7 +908,7 @@ export default function ReceivePage() {
       <footer className="border-t border-[#E5E5E5] mt-12">
         <div className="max-w-4xl mx-auto px-6 py-6 text-center">
           <p className="text-[11px] font-medium tracking-[0.05em] uppercase text-[#777777] font-mono">
-            POWERED BY UNICHAIN
+            POWERED BY MONAD
           </p>
         </div>
       </footer>

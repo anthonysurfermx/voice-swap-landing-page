@@ -1,5 +1,5 @@
 export function TechStack() {
-  const technologies = ["Unichain", "Uniswap V4", "WalletConnect", "Meta SDK", "Thirdweb", "x402", "OpenAI"]
+  const technologies = ["Monad", "Uniswap V3", "WalletConnect", "Meta SDK", "Thirdweb", "x402", "Gemini"]
 
   return (
     <section className="border-y border-[#E5E5E5] py-8">

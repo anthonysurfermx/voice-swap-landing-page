@@ -11,22 +11,22 @@
   --card-foreground: #000000;
   --popover: #ffffff;
   --popover-foreground: #000000;
-  --primary: #1BFFE3; /* Interfacer cyan/teal */
+  --primary: #836EF9; /* Interfacer cyan/teal */
   --primary-foreground: #000000;
   --secondary: #f5f5f5;
   --secondary-foreground: #000000;
   --muted: #f5f5f5;
   --muted-foreground: #777777; /* Interfacer muted */
-  --accent: #1BFFE3; /* Interfacer cyan */
+  --accent: #836EF9; /* Interfacer cyan */
   --accent-foreground: #000000;
   --destructive: #FF3B30;
   --destructive-foreground: #ffffff;
-  --success: #1BFFE3;
+  --success: #836EF9;
   --success-foreground: #000000;
   --border: #E5E5E5; /* Subtle borders */
   --border-dark: #000000; /* For emphasis */
   --input: #ffffff;
-  --ring: #1BFFE3;
+  --ring: #836EF9;
   --divider: #E5E5E5;
   --radius: 2px; /* Minimal radius - brutalist */
   --sidebar: #ffffff;
@@ -36,7 +36,7 @@
   --sidebar-accent: #f5f5f5;
   --sidebar-accent-foreground: #000000;
   --sidebar-border: #E5E5E5;
-  --sidebar-ring: #1BFFE3;
+  --sidebar-ring: #836EF9;
 }
 
 .dark {

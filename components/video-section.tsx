@@ -11,9 +11,9 @@ export function VideoSection() {
       {/* Video Button - inline style */}
       <button
         onClick={() => setIsOpen(true)}
-        className="inline-flex items-center gap-2 px-6 py-3 border border-[#E5E5E5] text-black text-[11px] font-bold tracking-[0.1em] uppercase font-mono hover:border-[#1BFFE3] hover:text-[#1BFFE3] transition-colors group"
+        className="inline-flex items-center gap-2 px-6 py-3 border border-[#E5E5E5] text-black text-[11px] font-bold tracking-[0.1em] uppercase font-mono hover:border-[#836EF9] hover:text-[#836EF9] transition-colors group"
       >
-        <div className="w-6 h-6 rounded-full border border-current flex items-center justify-center group-hover:bg-[#1BFFE3] group-hover:border-[#1BFFE3] group-hover:text-black transition-colors">
+        <div className="w-6 h-6 rounded-full border border-current flex items-center justify-center group-hover:bg-[#836EF9] group-hover:border-[#836EF9] group-hover:text-black transition-colors">
           <Play className="w-3 h-3 ml-0.5" fill="currentColor" />
         </div>
         WATCH DEMO
@@ -28,7 +28,7 @@ export function VideoSection() {
           {/* Close button */}
           <button
             onClick={() => setIsOpen(false)}
-            className="absolute top-6 right-6 p-2 text-white hover:text-[#1BFFE3] transition-colors"
+            className="absolute top-6 right-6 p-2 text-white hover:text-[#836EF9] transition-colors"
           >
             <X className="w-6 h-6" />
           </button>

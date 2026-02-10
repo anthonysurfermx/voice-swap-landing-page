@@ -17,7 +17,7 @@ const steps = [
     number: "03",
     icon: Check,
     title: "DONE",
-    description: "Payment executes instantly in USDC on Unichain. No buttons needed.",
+    description: "Payment executes instantly in USDC on Monad. MON auto-swaps if needed — no buttons.",
   },
 ]
 
@@ -42,7 +42,7 @@ export function HowItWorks() {
             >
               {/* Number + Icon */}
               <div className="flex-shrink-0 w-16">
-                <div className="w-10 h-10 bg-[#1BFFE3]/15 rounded-sm flex items-center justify-center">
+                <div className="w-10 h-10 bg-[#836EF9]/15 rounded-sm flex items-center justify-center">
                   <Icon className="w-5 h-5 text-black" strokeWidth={2} />
                 </div>
               </div>

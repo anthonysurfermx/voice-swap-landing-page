@@ -13,8 +13,8 @@ const _geistMono = Geist_Mono({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "VoiceSwap - Voice-Activated Crypto Payments for AI Glasses",
   description:
-    "Speak. Send. Settled. Voice-activated crypto payments for AI smart glasses. Pay with USDC on Unichain using just your voice.",
-  keywords: ["crypto payments", "voice activated", "AI glasses", "USDC", "Unichain", "WalletConnect"],
+    "Speak. Send. Settled. Voice-activated crypto payments for AI smart glasses. Pay with USDC on Monad using just your voice.",
+  keywords: ["crypto payments", "voice activated", "AI glasses", "USDC", "Monad", "WalletConnect"],
   generator: "v0.app",
   icons: {
     icon: [

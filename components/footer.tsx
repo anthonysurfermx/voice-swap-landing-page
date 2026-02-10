@@ -8,7 +8,7 @@ export function Footer() {
           {/* Logo */}
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-[#1BFFE3] rounded-full" />
+              <div className="w-2 h-2 bg-[#836EF9] rounded-full" />
               <span className="text-xs font-bold tracking-[0.2em] uppercase font-mono">
                 VOICESWAP
               </span>
@@ -27,10 +27,10 @@ export function Footer() {
                 PRODUCT
               </span>
               <div className="flex flex-col gap-2">
-                <a href="#waitlist" className="text-sm hover:text-[#1BFFE3] transition-colors">
+                <a href="#waitlist" className="text-sm hover:text-[#836EF9] transition-colors">
                   Get Early Access
                 </a>
-                <Link href="/receive" className="text-sm hover:text-[#1BFFE3] transition-colors">
+                <Link href="/receive" className="text-sm hover:text-[#836EF9] transition-colors">
                   For Businesses
                 </Link>
               </div>
@@ -45,17 +45,17 @@ export function Footer() {
                   href="https://github.com/anthropicsurfermx/voiceswap"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm hover:text-[#1BFFE3] transition-colors"
+                  className="text-sm hover:text-[#836EF9] transition-colors"
                 >
                   GitHub
                 </a>
                 <a
-                  href="https://unichain.org"
+                  href="https://monad.xyz"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm hover:text-[#1BFFE3] transition-colors"
+                  className="text-sm hover:text-[#836EF9] transition-colors"
                 >
-                  Unichain
+                  Monad
                 </a>
               </div>
             </div>
@@ -65,7 +65,7 @@ export function Footer() {
         {/* Copyright */}
         <div className="pt-8 mt-8 border-t border-[#E5E5E5]">
           <p className="text-[11px] font-medium tracking-[0.05em] uppercase text-[#777777] font-mono text-center">
-            © 2025 VOICESWAP • BUILT ON UNICHAIN
+            © 2026 VOICESWAP • BUILT ON MONAD
           </p>
         </div>
       </div>

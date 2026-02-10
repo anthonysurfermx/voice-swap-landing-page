@@ -7,7 +7,7 @@ export function Navigation() {
         <div className="flex justify-between items-center h-16">
           <Link href="/" className="flex items-center gap-3">
             {/* Minimal dot indicator */}
-            <div className="w-2 h-2 bg-[#1BFFE3] rounded-full" />
+            <div className="w-2 h-2 bg-[#836EF9] rounded-full" />
             <span className="text-xs font-bold tracking-[0.2em] uppercase font-mono">
               VOICESWAP
             </span>
@@ -25,7 +25,7 @@ export function Navigation() {
             {/* Primary CTA - scrolls to waitlist */}
             <a
               href="#waitlist"
-              className="px-4 py-2 bg-[#1BFFE3] text-black text-[11px] font-bold tracking-[0.1em] uppercase font-mono hover:bg-[#66DEE0] transition-colors"
+              className="px-4 py-2 bg-[#836EF9] text-white text-[11px] font-bold tracking-[0.1em] uppercase font-mono hover:bg-[#A18FFF] transition-colors"
             >
               GET EARLY ACCESS
             </a>
