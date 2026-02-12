@@ -1,64 +1,100 @@
-import { Glasses } from "lucide-react"
-import { VideoSection } from "./video-section"
+"use client"
+
+import { useEffect, useState } from "react"
 
 export function HeroSection() {
+  const [loaded, setLoaded] = useState(false)
+
+  useEffect(() => {
+    setLoaded(true)
+  }, [])
+
   return (
-    <section className="max-w-4xl mx-auto px-6 lg:px-8 py-20 lg:py-32">
-      <div className="space-y-8">
-        {/* Status indicator */}
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 bg-[#836EF9] rounded-full animate-pulse" />
-          <span className="text-[11px] font-medium tracking-[0.1em] uppercase font-mono text-[#777777]">
-            META RAY-BAN • MONAD
-          </span>
-        </div>
+    <section className="relative h-screen min-h-[700px] flex items-center justify-center overflow-hidden">
+      {/* Background video */}
+      <div className="absolute inset-0 bg-[#0a0a0a]">
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="w-full h-full object-cover opacity-50"
+        >
+          <source src="https://17usg51unah8rfmu.public.blob.vercel-storage.com/hero-video.mp4" type="video/mp4" />
+        </video>
 
-        {/* Main title - Interfacer style */}
-        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.1]">
-          Pay with your voice
-          <br />
-          <span className="text-[#777777]">through AI glasses</span>
-        </h1>
+        {/* Gradient overlays */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#0a0a0a]/70 via-transparent to-[#0a0a0a]" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#0a0a0a]/80 via-[#0a0a0a]/30 to-transparent" />
+      </div>
 
-        {/* Tagline */}
-        <p className="text-base lg:text-lg text-[#777777] max-w-md leading-relaxed">
-          Scan a QR code, say the amount, confirm with your voice.
-          Instant USDC payments on Monad — no phone needed.
-        </p>
-
-        {/* CTA buttons - minimal style */}
-        <div className="flex flex-col sm:flex-row gap-3 pt-4">
-          {/* Primary CTA - Coming Soon state */}
-          <div className="relative">
-            <button
-              disabled
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-[#836EF9]/50 text-white/50 text-[11px] font-bold tracking-[0.1em] uppercase font-mono cursor-not-allowed"
-            >
-              <Glasses className="w-4 h-4" strokeWidth={2} />
-              GET THE APP
-            </button>
-            <span className="absolute -top-2 -right-2 px-2 py-0.5 bg-black text-white text-[9px] font-bold tracking-[0.1em] uppercase font-mono rounded-sm">
-              SOON
+      {/* Content */}
+      <div className="relative z-10 max-w-[1400px] mx-auto px-6 lg:px-10 w-full">
+        <div className="max-w-3xl">
+          {/* Eyebrow */}
+          <div
+            className={`flex items-center gap-3 mb-8 transition-all duration-1000 delay-300 ${
+              loaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
+            }`}
+          >
+            <div className="w-1.5 h-1.5 bg-[#836EF9] rounded-full animate-pulse" />
+            <span className="text-[11px] font-medium tracking-[0.2em] uppercase font-mono text-white/40">
+              A new way to pay
             </span>
           </div>
-          <VideoSection />
-        </div>
 
-        {/* Stats row - Interfacer minimal */}
-        <div className="flex gap-12 pt-8 border-t border-[#E5E5E5]">
-          <div>
-            <p className="text-2xl font-bold">~$0</p>
-            <p className="text-[11px] font-medium tracking-[0.05em] uppercase text-[#777777] font-mono">Gas fees</p>
-          </div>
-          <div>
-            <p className="text-2xl font-bold">&lt;1s</p>
-            <p className="text-[11px] font-medium tracking-[0.05em] uppercase text-[#777777] font-mono">Tx time</p>
-          </div>
-          <div>
-            <p className="text-2xl font-bold">USDC</p>
-            <p className="text-[11px] font-medium tracking-[0.05em] uppercase text-[#777777] font-mono">Stablecoin</p>
+          {/* Main headline */}
+          <h1
+            className={`text-[clamp(2.5rem,7vw,5.5rem)] font-bold leading-[0.95] tracking-tight mb-8 transition-all duration-1000 delay-500 ${
+              loaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
+            }`}
+          >
+            <span className="text-white">Your voice.</span>
+            <br />
+            <span className="text-gradient-purple">Your glasses.</span>
+            <br />
+            <span className="text-white/40">That&apos;s it.</span>
+          </h1>
+
+          {/* Subtitle */}
+          <p
+            className={`text-lg lg:text-xl text-white/50 max-w-lg leading-relaxed mb-10 transition-all duration-1000 delay-700 ${
+              loaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
+            }`}
+          >
+            Scan. Speak. Paid. No phone, no tapping, no friction.
+            Just you and your smart glasses.
+          </p>
+
+          {/* CTAs */}
+          <div
+            className={`flex flex-col sm:flex-row items-start gap-4 transition-all duration-1000 delay-900 ${
+              loaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
+            }`}
+          >
+            <a
+              href="#waitlist"
+              className="group px-8 py-4 bg-[#836EF9] text-white text-[12px] font-bold tracking-[0.15em] uppercase font-mono hover:bg-[#A18FFF] transition-all duration-300 hover:shadow-[0_0_30px_rgba(131,110,249,0.4)] inline-flex items-center gap-3"
+            >
+              Join the waitlist
+              <svg className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+              </svg>
+            </a>
           </div>
         </div>
+      </div>
+
+      {/* Scroll indicator */}
+      <div
+        className={`absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-3 transition-all duration-1000 delay-[1200ms] ${
+          loaded ? "opacity-100" : "opacity-0"
+        }`}
+      >
+        <span className="text-[10px] font-mono tracking-[0.2em] uppercase text-white/30">
+          Scroll
+        </span>
+        <div className="w-[1px] h-8 bg-gradient-to-b from-white/30 to-transparent animate-pulse" />
       </div>
     </section>
   )

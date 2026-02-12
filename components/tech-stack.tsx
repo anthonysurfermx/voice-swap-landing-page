@@ -1,17 +1,17 @@
+"use client"
+
 export function TechStack() {
-  const technologies = ["Monad", "Uniswap V3", "WalletConnect", "Meta SDK", "Thirdweb", "x402", "Gemini"]
+  const technologies = ["Monad", "Uniswap V3", "WalletConnect", "Gemini AI", "USDC"]
 
   return (
-    <section className="border-y border-[#E5E5E5] py-8">
-      <div className="max-w-4xl mx-auto px-6 lg:px-8">
-        <div className="flex flex-wrap items-center justify-center gap-6">
-          <span className="text-[11px] font-bold tracking-[0.1em] uppercase font-mono text-[#777777]">
-            BUILT WITH
-          </span>
-          {technologies.map((tech, index) => (
+    <section className="py-6 overflow-hidden border-y border-white/5">
+      <div className="relative">
+        {/* Marquee animation */}
+        <div className="flex animate-marquee whitespace-nowrap">
+          {[...technologies, ...technologies, ...technologies, ...technologies].map((tech, index) => (
             <span
               key={index}
-              className="text-[11px] font-bold tracking-[0.05em] uppercase font-mono text-black"
+              className="mx-8 lg:mx-12 text-[11px] font-bold tracking-[0.2em] uppercase font-mono text-white/20"
             >
               {tech}
             </span>

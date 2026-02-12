@@ -1,41 +1,41 @@
 "use client"
 
 import { useState } from "react"
-import { Play, X } from "lucide-react"
+import { X } from "lucide-react"
 
 export function VideoSection() {
   const [isOpen, setIsOpen] = useState(false)
 
   return (
     <>
-      {/* Video Button - inline style */}
+      {/* Video Button */}
       <button
         onClick={() => setIsOpen(true)}
-        className="inline-flex items-center gap-2 px-6 py-3 border border-[#E5E5E5] text-black text-[11px] font-bold tracking-[0.1em] uppercase font-mono hover:border-[#836EF9] hover:text-[#836EF9] transition-colors group"
+        className="group inline-flex items-center gap-3 px-8 py-4 border border-white/20 text-white text-[12px] font-bold tracking-[0.15em] uppercase font-mono hover:border-[#836EF9] hover:text-[#836EF9] transition-all duration-300"
       >
-        <div className="w-6 h-6 rounded-full border border-current flex items-center justify-center group-hover:bg-[#836EF9] group-hover:border-[#836EF9] group-hover:text-black transition-colors">
-          <Play className="w-3 h-3 ml-0.5" fill="currentColor" />
+        <div className="w-8 h-8 rounded-full border border-current flex items-center justify-center group-hover:bg-[#836EF9] group-hover:border-[#836EF9] group-hover:text-white transition-all duration-300">
+          <svg className="w-3.5 h-3.5 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M8 5v14l11-7z" />
+          </svg>
         </div>
-        WATCH DEMO
+        Watch Demo
       </button>
 
       {/* Modal */}
       {isOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md"
           onClick={() => setIsOpen(false)}
         >
-          {/* Close button */}
           <button
             onClick={() => setIsOpen(false)}
-            className="absolute top-6 right-6 p-2 text-white hover:text-[#836EF9] transition-colors"
+            className="absolute top-6 right-6 p-3 text-white/60 hover:text-white transition-colors"
           >
             <X className="w-6 h-6" />
           </button>
 
-          {/* Video container */}
           <div
-            className="relative w-full max-w-sm aspect-[9/16] bg-black rounded-sm overflow-hidden"
+            className="relative w-full max-w-sm aspect-[9/16] bg-black overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <video
@@ -50,9 +50,8 @@ export function VideoSection() {
             </video>
           </div>
 
-          {/* Caption */}
-          <p className="absolute bottom-6 left-0 right-0 text-center text-[11px] font-medium tracking-[0.05em] uppercase text-white/60 font-mono">
-            Voice payment on Meta Ray-Ban glasses
+          <p className="absolute bottom-8 left-0 right-0 text-center text-[11px] font-mono tracking-[0.15em] uppercase text-white/30">
+            Voice payment on smart AI glasses
           </p>
         </div>
       )}

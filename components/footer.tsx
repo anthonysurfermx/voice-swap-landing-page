@@ -2,70 +2,74 @@ import Link from "next/link"
 
 export function Footer() {
   return (
-    <footer className="border-t border-[#E5E5E5] bg-white">
-      <div className="max-w-4xl mx-auto px-6 lg:px-8 py-12">
-        <div className="flex flex-col sm:flex-row justify-between items-start gap-8">
-          {/* Logo */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
+    <footer className="border-t border-white/5 bg-[#0a0a0a]">
+      <div className="max-w-[1400px] mx-auto px-6 lg:px-10 py-16 lg:py-20">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-12 lg:gap-16">
+          {/* Brand */}
+          <div className="md:col-span-2 space-y-4">
+            <div className="flex items-center gap-3">
               <div className="w-2 h-2 bg-[#836EF9] rounded-full" />
-              <span className="text-xs font-bold tracking-[0.2em] uppercase font-mono">
+              <span className="text-[11px] font-bold tracking-[0.25em] uppercase font-mono text-white">
                 VOICESWAP
               </span>
             </div>
-            <p className="text-sm text-[#777777]">
-              Voice-activated crypto payments
-              <br />
-              for Meta Ray-Ban glasses
+            <p className="text-sm text-white/30 max-w-xs leading-relaxed">
+              Voice-activated payments for smart AI glasses.
+              A new way to pay, built on Monad.
             </p>
           </div>
 
-          {/* Links */}
-          <div className="flex gap-12">
-            <div className="space-y-3">
-              <span className="text-[11px] font-bold tracking-[0.1em] uppercase font-mono text-[#777777]">
-                PRODUCT
-              </span>
-              <div className="flex flex-col gap-2">
-                <a href="#waitlist" className="text-sm hover:text-[#836EF9] transition-colors">
-                  Get Early Access
-                </a>
-                <Link href="/receive" className="text-sm hover:text-[#836EF9] transition-colors">
-                  For Businesses
-                </Link>
-              </div>
+          {/* Product */}
+          <div className="space-y-4">
+            <span className="text-[10px] font-bold tracking-[0.2em] uppercase font-mono text-white/20">
+              Product
+            </span>
+            <div className="flex flex-col gap-3">
+              <a href="#waitlist" className="text-sm text-white/40 hover:text-[#836EF9] transition-colors duration-300">
+                Get Early Access
+              </a>
+              <Link href="/receive" className="text-sm text-white/40 hover:text-[#836EF9] transition-colors duration-300">
+                For Businesses
+              </Link>
+              <a href="#experience" className="text-sm text-white/40 hover:text-[#836EF9] transition-colors duration-300">
+                Experience
+              </a>
             </div>
+          </div>
 
-            <div className="space-y-3">
-              <span className="text-[11px] font-bold tracking-[0.1em] uppercase font-mono text-[#777777]">
-                RESOURCES
-              </span>
-              <div className="flex flex-col gap-2">
-                <a
-                  href="https://github.com/anthropicsurfermx/voiceswap"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm hover:text-[#836EF9] transition-colors"
-                >
-                  GitHub
-                </a>
-                <a
-                  href="https://monad.xyz"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm hover:text-[#836EF9] transition-colors"
-                >
-                  Monad
-                </a>
-              </div>
+          {/* Resources */}
+          <div className="space-y-4">
+            <span className="text-[10px] font-bold tracking-[0.2em] uppercase font-mono text-white/20">
+              Resources
+            </span>
+            <div className="flex flex-col gap-3">
+              <a
+                href="https://github.com/anthropicsurfermx/voiceswap"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-white/40 hover:text-[#836EF9] transition-colors duration-300"
+              >
+                GitHub
+              </a>
+              <a
+                href="https://monad.xyz"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-white/40 hover:text-[#836EF9] transition-colors duration-300"
+              >
+                Monad
+              </a>
             </div>
           </div>
         </div>
 
-        {/* Copyright */}
-        <div className="pt-8 mt-8 border-t border-[#E5E5E5]">
-          <p className="text-[11px] font-medium tracking-[0.05em] uppercase text-[#777777] font-mono text-center">
-            © 2026 VOICESWAP • BUILT ON MONAD
+        {/* Bottom bar */}
+        <div className="pt-12 mt-12 border-t border-white/5 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <p className="text-[10px] font-mono tracking-[0.1em] uppercase text-white/20">
+            &copy; 2026 VOICESWAP
+          </p>
+          <p className="text-[10px] font-mono tracking-[0.1em] uppercase text-white/20">
+            Built on Monad
           </p>
         </div>
       </div>

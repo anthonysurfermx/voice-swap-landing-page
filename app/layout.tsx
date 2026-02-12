@@ -4,18 +4,21 @@ import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
 
-const _geist = Geist({
+const geist = Geist({
   subsets: ["latin"],
-  weight: ["400", "700", "900"], // Include extra bold weights for brutalist design
+  weight: ["400", "700", "900"],
+  variable: "--font-geist",
 })
-const _geistMono = Geist_Mono({ subsets: ["latin"] })
+const geistMono = Geist_Mono({
+  subsets: ["latin"],
+  variable: "--font-geist-mono",
+})
 
 export const metadata: Metadata = {
-  title: "VoiceSwap - Voice-Activated Crypto Payments for AI Glasses",
+  title: "VoiceSwap — Pay with your voice, through AI glasses",
   description:
-    "Speak. Send. Settled. Voice-activated crypto payments for AI smart glasses. Pay with USDC on Monad using just your voice.",
-  keywords: ["crypto payments", "voice activated", "AI glasses", "USDC", "Monad", "WalletConnect"],
-  generator: "v0.app",
+    "Scan. Speak. Paid. Voice-activated payments for smart AI glasses. No phone, no friction — just you and your glasses.",
+  keywords: ["voice payments", "AI glasses", "smart glasses", "USDC", "Monad", "contactless payments"],
   icons: {
     icon: [
       {
@@ -33,6 +36,11 @@ export const metadata: Metadata = {
     ],
     apple: "/apple-icon.png",
   },
+  openGraph: {
+    title: "VoiceSwap — Pay with your voice, through AI glasses",
+    description: "Scan. Speak. Paid. Voice-activated payments for smart AI glasses.",
+    type: "website",
+  },
 }
 
 export default function RootLayout({
@@ -41,8 +49,8 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
-      <body className={`font-sans antialiased`}>
+    <html lang="en" className={`${geist.variable} ${geistMono.variable}`}>
+      <body className="font-sans antialiased bg-[#0a0a0a] text-white">
         {children}
         <Analytics />
       </body>
