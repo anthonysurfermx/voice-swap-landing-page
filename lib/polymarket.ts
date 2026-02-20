@@ -48,35 +48,205 @@ function parseMarket(m: Record<string, unknown>): MarketInfo {
   }
 }
 
-export async function searchMarkets(query: string, limit = 10): Promise<EventInfo[]> {
-  const params = new URLSearchParams({
-    _limit: String(limit),
-    active: 'true',
-    closed: 'false',
-    order: 'volume24hr',
-    ascending: 'false',
-  })
-  if (query) params.set('title', query)
+// Sports league keyword -> Gamma API tag_slug mapping
+// Built from https://gamma-api.polymarket.com/sports
+const LEAGUE_MAP: Record<string, string> = {
+  // Soccer / Football
+  'liga mx': 'mex', 'ligamx': 'mex', 'liga mexicana': 'mex', 'futbol mexicano': 'mex', 'mexican soccer': 'mex',
+  'premier league': 'epl', 'epl': 'epl', 'english football': 'epl',
+  'la liga': 'lal', 'laliga': 'lal', 'spanish football': 'lal', 'liga espanola': 'lal',
+  'bundesliga': 'bun', 'german football': 'bun',
+  'serie a': 'itc', 'italian football': 'itc',
+  'ligue 1': 'fl1', 'french football': 'fl1',
+  'champions league': 'ucl', 'ucl': 'ucl',
+  'europa league': 'uel', 'uel': 'uel',
+  'mls': 'mls', 'major league soccer': 'mls',
+  'copa libertadores': 'lib', 'libertadores': 'lib',
+  'copa sudamericana': 'sud', 'sudamericana': 'sud',
+  'liga argentina': 'arg', 'futbol argentino': 'arg', 'argentine football': 'arg',
+  'brasileirao': 'bra', 'brazilian football': 'bra', 'serie a brazil': 'bra',
+  'eredivisie': 'ere', 'dutch football': 'ere',
+  'liga portugal': 'por', 'portuguese football': 'por',
+  'j league': 'jap', 'j-league': 'jap', 'japanese football': 'jap',
+  'k league': 'kor', 'korean football': 'kor',
+  'liga colombiana': 'col', 'colombian football': 'col',
+  'super lig': 'tur', 'turkish football': 'tur',
+  // US Sports
+  'nba': 'nba', 'basketball': 'nba',
+  'nfl': 'nfl', 'football americano': 'nfl', 'american football': 'nfl',
+  'mlb': 'mlb', 'baseball': 'mlb', 'beisbol': 'mlb',
+  'nhl': 'nhl', 'hockey': 'nhl',
+  'ncaab': 'ncaab', 'march madness': 'ncaab', 'college basketball': 'ncaab',
+  'cfb': 'cfb', 'college football': 'cfb',
+  'wnba': 'wnba',
+  // Combat
+  'ufc': 'ufc', 'mma': 'ufc',
+  // Esports
+  'league of legends': 'lol', 'lol': 'lol',
+  'dota': 'dota2', 'dota 2': 'dota2',
+  'valorant': 'val',
+  'cs2': 'cs2', 'csgo': 'cs2', 'counter strike': 'cs2',
+  // Tennis
+  'atp': 'atp', 'tennis': 'atp',
+  'wta': 'wta',
+  // Cricket
+  'ipl': 'ipl', 'cricket': 'ipl',
+}
 
+// Sports team/club -> { league, searchTerms } mapping
+// searchTerms: all variants that might appear in Polymarket event titles
+interface TeamEntry { league: string; search: string[] }
+const TEAM_ENTRIES: Record<string, TeamEntry> = {
+  // Liga MX teams (Polymarket uses official names like "CF América", "CD Guadalajara")
+  'pumas':        { league: 'mex', search: ['pumas', 'unam'] },
+  'unam':         { league: 'mex', search: ['pumas', 'unam'] },
+  'tigres':       { league: 'mex', search: ['tigres', 'uanl'] },
+  'america':      { league: 'mex', search: ['america', 'américa'] },
+  'aguilas':      { league: 'mex', search: ['america', 'américa'] },
+  'cruz azul':    { league: 'mex', search: ['cruz azul'] },
+  'chivas':       { league: 'mex', search: ['guadalajara', 'chivas'] },
+  'guadalajara':  { league: 'mex', search: ['guadalajara'] },
+  'monterrey':    { league: 'mex', search: ['monterrey'] },
+  'rayados':      { league: 'mex', search: ['monterrey'] },
+  'santos':       { league: 'mex', search: ['santos'] },
+  'santos laguna':{ league: 'mex', search: ['santos laguna', 'santos'] },
+  'toluca':       { league: 'mex', search: ['toluca'] },
+  'leon':         { league: 'mex', search: ['leon', 'león'] },
+  'pachuca':      { league: 'mex', search: ['pachuca'] },
+  'atlas':        { league: 'mex', search: ['atlas'] },
+  'necaxa':       { league: 'mex', search: ['necaxa'] },
+  'puebla':       { league: 'mex', search: ['puebla'] },
+  'tijuana':      { league: 'mex', search: ['tijuana'] },
+  'xolos':        { league: 'mex', search: ['tijuana'] },
+  'mazatlan':     { league: 'mex', search: ['mazatlan', 'mazatlán'] },
+  'juarez':       { league: 'mex', search: ['juarez', 'juárez'] },
+  'queretaro':    { league: 'mex', search: ['queretaro', 'querétaro'] },
+  'san luis':     { league: 'mex', search: ['san luis'] },
+  // EPL teams
+  'arsenal':      { league: 'epl', search: ['arsenal'] },
+  'chelsea':      { league: 'epl', search: ['chelsea'] },
+  'liverpool':    { league: 'epl', search: ['liverpool'] },
+  'man city':     { league: 'epl', search: ['manchester city', 'man city'] },
+  'manchester city': { league: 'epl', search: ['manchester city'] },
+  'man united':   { league: 'epl', search: ['manchester united', 'man united'] },
+  'manchester united': { league: 'epl', search: ['manchester united'] },
+  'tottenham':    { league: 'epl', search: ['tottenham', 'spurs'] },
+  'spurs':        { league: 'epl', search: ['tottenham', 'spurs'] },
+  'newcastle':    { league: 'epl', search: ['newcastle'] },
+  // La Liga teams
+  'real madrid':  { league: 'lal', search: ['real madrid'] },
+  'barcelona':    { league: 'lal', search: ['barcelona'] },
+  'barca':        { league: 'lal', search: ['barcelona'] },
+  'atletico madrid': { league: 'lal', search: ['atletico madrid', 'atlético'] },
+  'sevilla':      { league: 'lal', search: ['sevilla'] },
+  // NBA teams
+  'lakers':       { league: 'nba', search: ['lakers', 'los angeles lakers'] },
+  'celtics':      { league: 'nba', search: ['celtics', 'boston'] },
+  'warriors':     { league: 'nba', search: ['warriors', 'golden state'] },
+  'knicks':       { league: 'nba', search: ['knicks', 'new york knicks'] },
+  'bulls':        { league: 'nba', search: ['bulls', 'chicago'] },
+  'heat':         { league: 'nba', search: ['heat', 'miami'] },
+  'mavs':         { league: 'nba', search: ['mavericks', 'dallas'] },
+  'mavericks':    { league: 'nba', search: ['mavericks', 'dallas'] },
+  'thunder':      { league: 'nba', search: ['thunder', 'oklahoma'] },
+  'nuggets':      { league: 'nba', search: ['nuggets', 'denver'] },
+  // NFL teams
+  'chiefs':       { league: 'nfl', search: ['chiefs', 'kansas city'] },
+  'eagles':       { league: 'nfl', search: ['eagles', 'philadelphia'] },
+  'cowboys':      { league: 'nfl', search: ['cowboys', 'dallas cowboys'] },
+  'bills':        { league: 'nfl', search: ['bills', 'buffalo'] },
+  '49ers':        { league: 'nfl', search: ['49ers', 'san francisco'] },
+  'packers':      { league: 'nfl', search: ['packers', 'green bay'] },
+  // UFC fighters
+  'mcgregor':     { league: 'ufc', search: ['mcgregor'] },
+  'adesanya':     { league: 'ufc', search: ['adesanya'] },
+}
+
+function detectLeague(query: string): string | null {
+  const q = query.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
+  // Check longest matches first to avoid partial matches
+  const sorted = Object.keys(LEAGUE_MAP).sort((a, b) => b.length - a.length)
+  for (const key of sorted) {
+    if (q.includes(key)) return LEAGUE_MAP[key]
+  }
+  return null
+}
+
+function detectTeamLeague(query: string): { league: string; searchTerms: string[] } | null {
+  const q = query.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
+  const sorted = Object.keys(TEAM_ENTRIES).sort((a, b) => b.length - a.length)
+  for (const key of sorted) {
+    if (q.includes(key)) {
+      const entry = TEAM_ENTRIES[key]
+      return { league: entry.league, searchTerms: entry.search }
+    }
+  }
+  return null
+}
+
+function parseEvent(event: Record<string, unknown>): EventInfo {
+  const rawMarkets = (event.markets as Record<string, unknown>[]) || []
+  return {
+    title: (event.title as string) || '',
+    slug: (event.slug as string) || '',
+    image: (event.image as string) || '',
+    volume: parseFloat(event.volume as string) || 0,
+    liquidity: parseFloat(event.liquidity as string) || 0,
+    endDate: (event.endDate as string) || '',
+    markets: rawMarkets.map(parseMarket),
+  }
+}
+
+async function fetchEvents(params: URLSearchParams): Promise<EventInfo[]> {
   const res = await fetch(`${GAMMA_API}/events?${params}`, {
     next: { revalidate: 60 },
   })
   if (!res.ok) return []
   const data = await res.json()
   if (!Array.isArray(data)) return []
+  return data.map(parseEvent)
+}
 
-  return data.map((event: Record<string, unknown>) => {
-    const rawMarkets = (event.markets as Record<string, unknown>[]) || []
-    return {
-      title: (event.title as string) || '',
-      slug: (event.slug as string) || '',
-      image: (event.image as string) || '',
-      volume: parseFloat(event.volume as string) || 0,
-      liquidity: parseFloat(event.liquidity as string) || 0,
-      endDate: (event.endDate as string) || '',
-      markets: rawMarkets.map(parseMarket),
-    }
-  })
+export async function searchMarkets(query: string, limit = 10): Promise<EventInfo[]> {
+  if (!query) {
+    // Trending: no query
+    return fetchEvents(new URLSearchParams({
+      _limit: String(limit), active: 'true', closed: 'false',
+      order: 'volume24hr', ascending: 'false',
+    }))
+  }
+
+  // 1. Check if query maps to a sports league ("liga mx", "nba")
+  const leagueSlug = detectLeague(query)
+  if (leagueSlug) {
+    return fetchEvents(new URLSearchParams({
+      _limit: String(limit), active: 'true', closed: 'false',
+      tag_slug: leagueSlug, order: 'startDate', ascending: 'true',
+    }))
+  }
+
+  // 2. Check if query matches a team name ("Pumas", "Chivas", "Lakers")
+  //    Fetch from that team's league and filter locally by all known name variants
+  const teamMatch = detectTeamLeague(query)
+  if (teamMatch) {
+    const allEvents = await fetchEvents(new URLSearchParams({
+      _limit: '50', active: 'true', closed: 'false',
+      tag_slug: teamMatch.league, order: 'startDate', ascending: 'true',
+    }))
+    const filtered = allEvents.filter(e => {
+      const titleLower = e.title.toLowerCase()
+      return teamMatch.searchTerms.some(term => titleLower.includes(term))
+    })
+    if (filtered.length > 0) return filtered.slice(0, limit)
+    // If no match by team name, return all league events
+    return allEvents.slice(0, limit)
+  }
+
+  // 3. General title search
+  return fetchEvents(new URLSearchParams({
+    _limit: String(limit), active: 'true', closed: 'false',
+    title: query, order: 'volume24hr', ascending: 'false',
+  }))
 }
 
 export async function getMarketBySlug(slug: string): Promise<MarketInfo | null> {
