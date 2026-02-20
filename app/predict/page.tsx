@@ -9,7 +9,7 @@ import Link from 'next/link'
 import {
   Wallet, LogOut, Send, TrendingUp, Search,
   ExternalLink, Loader2, AlertTriangle,
-  Shield, ArrowUpRight, ArrowDownRight, ChevronRight,
+  Shield, ArrowUpRight, ArrowDownRight, ChevronRight, ArrowLeft,
 } from 'lucide-react'
 import type { AnalysisResult, SmartWalletPosition } from '../api/market/analyze/route'
 
@@ -296,6 +296,11 @@ export default function PredictDashboard() {
   const [betting, setBetting] = useState(false)
   const [txHash, setTxHash] = useState<string | null>(null)
 
+  // Auto-load trending markets on first visit
+  useEffect(() => {
+    handleSearch('trending')
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Load portfolio when wallet connects
   useEffect(() => {
     if (!address) {
@@ -485,8 +490,8 @@ export default function PredictDashboard() {
         {/* Explore tab */}
         {activeTab === 'explore' && (
           <div className="grid md:grid-cols-[1fr,400px] min-h-[calc(100vh-112px)]">
-            {/* Left: search + markets */}
-            <div className="border-r border-[--border]">
+            {/* Left: search + markets (hidden on mobile when market is selected) */}
+            <div className={`border-r border-[--border] ${(selectedMarket || analyzing) ? 'hidden md:block' : ''}`}>
               {/* Search bar */}
               <div className="px-6 py-4 border-b border-[--border]">
                 <div className="flex items-center gap-3">
@@ -569,6 +574,17 @@ export default function PredictDashboard() {
 
             {/* Right: analysis + bet panel */}
             <div className="overflow-y-auto max-h-[calc(100vh-112px)]">
+              {/* Mobile back button */}
+              {(selectedMarket || analyzing) && (
+                <button
+                  onClick={() => { setSelectedMarket(null); setAnalysis(null); setTxHash(null) }}
+                  className="md:hidden flex items-center gap-2 px-5 py-3 border-b border-[--border] text-[13px] text-[--text-secondary] hover:text-white transition-colors w-full"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  Back to markets
+                </button>
+              )}
+
               {!selectedMarket && !analyzing && (
                 <div className="px-6 py-16 text-center">
                   <div className="w-10 h-10 border border-[--border-light] flex items-center justify-center mx-auto mb-4">
