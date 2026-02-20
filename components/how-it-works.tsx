@@ -5,20 +5,20 @@ import { useScrollAnimation } from "@/hooks/use-scroll-animation"
 const steps = [
   {
     number: "01",
-    title: "Look",
-    description: "See a QR code at any shop, restaurant, or market. Your glasses scan it instantly — no phone needed.",
+    title: "Perceive",
+    description: "The agent sees through your glasses camera. It detects QR codes, reads prices, and understands the scene around you — in real time.",
     visual: "scan",
   },
   {
     number: "02",
-    title: "Speak",
-    description: "Say the amount naturally. \"Pay twenty-five dollars\" or \"Paga veinticinco\" — in English or Spanish.",
+    title: "Understand",
+    description: "Speak naturally. The agent understands intent, amounts, and emotion — if you hesitate, it pauses. If you're confident, it moves fast.",
     visual: "voice",
   },
   {
     number: "03",
-    title: "Done",
-    description: "Confirm with your voice and it's settled. USDC on Monad, instant and nearly free.",
+    title: "Execute",
+    description: "The agent signs the transaction on-device, broadcasts to Monad, and confirms — all autonomously. No phone. No taps. No wallet apps.",
     visual: "check",
   },
 ]
@@ -35,12 +35,12 @@ export function HowItWorks() {
         {/* Section header */}
         <div className={`text-center mb-20 lg:mb-28 fade-in-up ${isVisible ? "visible" : ""}`}>
           <span className="text-[11px] font-mono tracking-[0.2em] uppercase text-[#836EF9] mb-6 block">
-            How it works
+            Agent loop
           </span>
           <h2 className="text-3xl sm:text-4xl lg:text-6xl font-bold tracking-tight text-white leading-[1.05]">
-            Three seconds.
+            Perceive. Understand.
             <br />
-            <span className="text-white/30">Zero friction.</span>
+            <span className="text-white/30">Execute.</span>
           </h2>
         </div>
 

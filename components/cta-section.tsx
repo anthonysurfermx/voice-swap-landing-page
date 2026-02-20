@@ -53,14 +53,14 @@ export function CTASection() {
           </span>
 
           <h2 className="text-3xl sm:text-4xl lg:text-6xl font-bold tracking-tight text-white leading-[1.05] mb-6">
-            Be part of
+            Give your glasses
             <br />
-            <span className="text-gradient-purple">what&apos;s next.</span>
+            <span className="text-gradient-purple">a wallet.</span>
           </h2>
 
           <p className="text-lg text-white/40 max-w-md mx-auto mb-10 leading-relaxed">
-            Join the waitlist for VoiceSwap. We&apos;ll let you know
-            when the app is ready for your smart glasses.
+            The first AI payment agent that lives in your glasses.
+            Join the waitlist and be the first to try it.
           </p>
 
           {!submitted ? (
@@ -112,13 +112,13 @@ export function CTASection() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
             <div>
               <span className="text-[11px] font-mono tracking-[0.15em] uppercase text-white/30 mb-2 block">
-                For Businesses
+                For Merchants
               </span>
               <p className="text-lg font-bold text-white">
-                Accept voice payments today
+                Accept agent payments today
               </p>
               <p className="text-sm text-white/40 mt-1">
-                No app needed — connect your wallet and show a QR code
+                Show a QR code — the agent handles the rest
               </p>
             </div>
             <Link

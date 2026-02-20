@@ -37,7 +37,7 @@ export function Navigation() {
               href="#experience"
               className="text-[11px] font-medium tracking-[0.15em] uppercase font-mono text-white/50 hover:text-white transition-colors duration-300"
             >
-              Experience
+              The Agent
             </a>
             <a
               href="#how-it-works"
@@ -49,7 +49,7 @@ export function Navigation() {
               href="/receive"
               className="text-[11px] font-medium tracking-[0.15em] uppercase font-mono text-white/50 hover:text-white transition-colors duration-300"
             >
-              For Business
+              Merchants
             </Link>
             <a
               href="#waitlist"
@@ -84,7 +84,7 @@ export function Navigation() {
             onClick={() => setMenuOpen(false)}
             className="block text-[11px] font-medium tracking-[0.15em] uppercase font-mono text-white/60 hover:text-white transition-colors"
           >
-            Experience
+            The Agent
           </a>
           <a
             href="#how-it-works"
@@ -98,7 +98,7 @@ export function Navigation() {
             onClick={() => setMenuOpen(false)}
             className="block text-[11px] font-medium tracking-[0.15em] uppercase font-mono text-white/60 hover:text-white transition-colors"
           >
-            For Business
+            Merchants
           </Link>
           <a
             href="#waitlist"

@@ -25,32 +25,32 @@ export function ExperienceSection() {
           {/* Left - Content */}
           <div className={`fade-in-up ${isVisible ? "visible" : ""}`}>
             <span className="text-[11px] font-mono tracking-[0.2em] uppercase text-[#836EF9] mb-6 block">
-              The experience
+              The agent
             </span>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-white leading-[1.05] mb-8">
-              Payment is
+              The first payment agent
               <br />
-              <span className="text-gradient-purple">invisible.</span>
+              <span className="text-gradient-purple">that lives in your glasses.</span>
             </h2>
             <p className="text-lg text-white/40 leading-relaxed mb-10 max-w-md">
               No wallets to open. No apps to switch. No screens to
-              unlock. Just look at a QR code, say the amount, and
-              your payment is done before you finish your sentence.
+              unlock. Your AI agent sees the QR code, hears the amount,
+              signs the transaction, and broadcasts it on-chain. All autonomously.
             </p>
 
             {/* Stats */}
             <div className="grid grid-cols-3 gap-8">
               <div>
-                <p className="text-3xl lg:text-4xl font-bold text-white tabular-nums">~$0</p>
-                <p className="text-[10px] font-mono tracking-[0.15em] uppercase text-white/30 mt-1">Gas fees</p>
-              </div>
-              <div>
                 <p className="text-3xl lg:text-4xl font-bold text-white tabular-nums">&lt;1s</p>
-                <p className="text-[10px] font-mono tracking-[0.15em] uppercase text-white/30 mt-1">Settlement</p>
+                <p className="text-[10px] font-mono tracking-[0.15em] uppercase text-white/30 mt-1">Sub-second finality</p>
               </div>
               <div>
-                <p className="text-3xl lg:text-4xl font-bold text-gradient-purple">USDC</p>
-                <p className="text-[10px] font-mono tracking-[0.15em] uppercase text-white/30 mt-1">Stablecoin</p>
+                <p className="text-3xl lg:text-4xl font-bold text-white tabular-nums">7+</p>
+                <p className="text-[10px] font-mono tracking-[0.15em] uppercase text-white/30 mt-1">Agent tools</p>
+              </div>
+              <div>
+                <p className="text-3xl lg:text-4xl font-bold text-gradient-purple">0</p>
+                <p className="text-[10px] font-mono tracking-[0.15em] uppercase text-white/30 mt-1">Human taps needed</p>
               </div>
             </div>
           </div>

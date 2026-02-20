@@ -39,7 +39,7 @@ export function HeroSection() {
           >
             <div className="w-1.5 h-1.5 bg-[#836EF9] rounded-full animate-pulse" />
             <span className="text-[11px] font-medium tracking-[0.2em] uppercase font-mono text-white/40">
-              A new way to pay
+              Autonomous payment agent
             </span>
           </div>
 
@@ -49,11 +49,11 @@ export function HeroSection() {
               loaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
             }`}
           >
-            <span className="text-white">Your voice.</span>
+            <span className="text-white">It sees.</span>
             <br />
-            <span className="text-gradient-purple">Your glasses.</span>
+            <span className="text-gradient-purple">It listens.</span>
             <br />
-            <span className="text-white/40">That&apos;s it.</span>
+            <span className="text-white/40">It pays.</span>
           </h1>
 
           {/* Subtitle */}
@@ -62,8 +62,8 @@ export function HeroSection() {
               loaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
             }`}
           >
-            Scan. Speak. Paid. No phone, no tapping, no friction.
-            Just you and your smart glasses.
+            An AI agent that lives in your glasses. It perceives the world through your camera,
+            understands your voice, and executes payments on-chain. Autonomously.
           </p>
 
           {/* CTAs */}

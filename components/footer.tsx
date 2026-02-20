@@ -14,8 +14,8 @@ export function Footer() {
               </span>
             </div>
             <p className="text-sm text-white/30 max-w-xs leading-relaxed">
-              Voice-activated payments for smart AI glasses.
-              A new way to pay, built on Monad.
+              The first AI payment agent that lives in your glasses.
+              Built on Monad.
             </p>
           </div>
 
@@ -29,10 +29,10 @@ export function Footer() {
                 Get Early Access
               </a>
               <Link href="/receive" className="text-sm text-white/40 hover:text-[#836EF9] transition-colors duration-300">
-                For Businesses
+                Merchants
               </Link>
               <a href="#experience" className="text-sm text-white/40 hover:text-[#836EF9] transition-colors duration-300">
-                Experience
+                The Agent
               </a>
             </div>
           </div>

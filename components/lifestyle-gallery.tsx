@@ -5,28 +5,28 @@ import { useScrollAnimation } from "@/hooks/use-scroll-animation"
 const galleryItems = [
   {
     label: "Mexico City",
-    caption: "Paying for juice, hands-free",
+    caption: "Agent pays for juice — hands-free",
     aspect: "aspect-[4/5]",
     span: "col-span-1 row-span-1",
     video: "https://17usg51unah8rfmu.public.blob.vercel-storage.com/gallery-1.mp4",
   },
   {
     label: "Tokyo",
-    caption: "Late night ramen, no wallet needed",
+    caption: "Late night ramen — the agent handles it",
     aspect: "aspect-[4/3]",
     span: "col-span-1 row-span-1",
     video: "https://17usg51unah8rfmu.public.blob.vercel-storage.com/gallery-2.mp4",
   },
   {
     label: "Rio de Janeiro",
-    caption: "Pay anywhere with just your voice",
+    caption: "Voice command, on-chain settlement",
     aspect: "aspect-[3/4]",
     span: "col-span-1 row-span-1 md:row-span-2",
     video: "https://17usg51unah8rfmu.public.blob.vercel-storage.com/gallery-3.mp4",
   },
   {
     label: "Bangkok",
-    caption: "Street food, scan and speak",
+    caption: "Street food — scan, speak, settled on Monad",
     aspect: "aspect-[16/9]",
     span: "col-span-1 md:col-span-2 row-span-1",
     video: "https://17usg51unah8rfmu.public.blob.vercel-storage.com/gallery-4.mp4",
@@ -42,12 +42,12 @@ export function LifestyleGallery() {
         {/* Section header */}
         <div className={`mb-16 fade-in-up ${isVisible ? "visible" : ""}`}>
           <span className="text-[11px] font-mono tracking-[0.2em] uppercase text-[#836EF9] mb-4 block">
-            Lifestyle
+            In the wild
           </span>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-white leading-[1.1]">
-            Wear them everywhere.
+            The agent goes
             <br />
-            <span className="text-white/30">Pay for anything.</span>
+            <span className="text-white/30">where you go.</span>
           </h2>
         </div>
 

@@ -4,10 +4,10 @@ import { useWeb3 } from '@/components/web3-provider'
 import { QRCodeSVG } from 'qrcode.react'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
-import { Wallet, Copy, Check, QrCode, LogOut, RefreshCw, ExternalLink, Bell, BellOff, Volume2, VolumeX, BarChart3, Download, Users } from 'lucide-react'
+import { Wallet, Copy, Check, QrCode, LogOut, RefreshCw, ExternalLink, Bell, BellOff, Volume2, VolumeX, BarChart3, Download, Users, ChevronDown, ChevronUp, Link2 } from 'lucide-react'
 
 const MONAD_EXPLORER = 'https://monadscan.com'
-const POLLING_INTERVAL = 10000 // 10 seconds
+const POLLING_INTERVAL = 5000 // 5 seconds — faster for demo UX
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://voiceswap.vercel.app'
 
 interface Transaction {
@@ -63,9 +63,12 @@ export default function ReceivePage() {
   const [walletBalance, setWalletBalance] = useState<WalletBalance | null>(null)
   const [mxnRate, setMxnRate] = useState<number | null>(null)
   const [showMXN, setShowMXN] = useState(false)
+  const [expandedTx, setExpandedTx] = useState<string | null>(null)
+  const [copiedLink, setCopiedLink] = useState(false)
 
   // Refs for tracking
   const lastKnownTxHash = useRef<string | null>(null)
+  const knownTxHashes = useRef<Set<string>>(new Set())
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -273,24 +276,6 @@ export default function ReceivePage() {
     URL.revokeObjectURL(url)
   }
 
-  // Fetch saved payments from backend to get concepts
-  const fetchSavedPayments = async (): Promise<Map<string, string>> => {
-    const conceptMap = new Map<string, string>()
-    try {
-      const res = await fetch(`${API_BASE}/voiceswap/merchant/payments/${address}`)
-      const data = await res.json()
-      if (data.success && data.data?.payments) {
-        data.data.payments.forEach((p: { tx_hash: string; concept: string | null }) => {
-          if (p.concept) {
-            conceptMap.set(p.tx_hash.toLowerCase(), p.concept)
-          }
-        })
-      }
-    } catch (err) {
-      console.error('[VoiceSwap] Failed to fetch saved payments:', err)
-    }
-    return conceptMap
-  }
 
   // Fetch transactions from Blockscout API (more reliable than RPC)
   const fetchTransactions = useCallback(async (silent = false) => {
@@ -302,12 +287,8 @@ export default function ReceivePage() {
     }
 
     try {
-      // Fetch from our API that uses Blockscout + saved concepts
-      const [apiResponse, savedConcepts] = await Promise.all([
-        fetch(`${API_BASE}/voiceswap/merchant/transactions/${address}`),
-        fetchSavedPayments()
-      ])
-
+      // Fetch from our API — now uses database (saved by iOS app after each payment)
+      const apiResponse = await fetch(`${API_BASE}/voiceswap/merchant/transactions/${address}`)
       const apiData = await apiResponse.json()
 
       if (!apiData.success) {
@@ -320,32 +301,27 @@ export default function ReceivePage() {
         amount: string
         timestamp: string
         blockNumber: number
-      }) => {
-        const txHash = tx.txHash.toLowerCase()
-        return {
-          hash: tx.txHash,
-          from: tx.fromAddress,
-          to: address,
-          value: tx.amount,
-          timestamp: new Date(tx.timestamp).getTime(),
-          blockNumber: tx.blockNumber,
-          concept: savedConcepts.get(txHash) || undefined
-        }
-      })
+        concept?: string
+      }) => ({
+        hash: tx.txHash,
+        from: tx.fromAddress,
+        to: address,
+        value: tx.amount,
+        timestamp: new Date(tx.timestamp).getTime(),
+        blockNumber: tx.blockNumber,
+        concept: tx.concept || undefined
+      }))
 
-      // Check for new transactions
+      // Check for new transactions using ref (avoids stale closure)
+      if (txs.length > 0 && knownTxHashes.current.size > 0) {
+        const newTxs = txs.filter(tx => !knownTxHashes.current.has(tx.hash))
+        newTxs.forEach(tx => handleNewPayment(tx))
+      }
+
+      // Update known hashes ref
+      knownTxHashes.current = new Set(txs.map(tx => tx.hash))
       if (txs.length > 0) {
-        const latestTx = txs[0]
-        if (lastKnownTxHash.current && lastKnownTxHash.current !== latestTx.hash) {
-          // New payment detected!
-          const newTxs = txs.filter(tx => {
-            const existingTx = transactions.find(t => t.hash === tx.hash)
-            return !existingTx
-          })
-
-          newTxs.forEach(tx => handleNewPayment(tx))
-        }
-        lastKnownTxHash.current = latestTx.hash
+        lastKnownTxHash.current = txs[0].hash
       }
 
       setTransactions(txs.slice(0, 10))
@@ -360,7 +336,7 @@ export default function ReceivePage() {
         setLoadingTxs(false)
       }
     }
-  }, [address, transactions])
+  }, [address])
 
   // Start/stop polling
   useEffect(() => {
@@ -371,6 +347,7 @@ export default function ReceivePage() {
 
       pollingIntervalRef.current = setInterval(() => {
         fetchTransactions(true) // Silent fetch
+        fetchBalance() // Refresh balance too
       }, POLLING_INTERVAL)
     } else {
       // Stop polling
@@ -386,7 +363,7 @@ export default function ReceivePage() {
         clearInterval(pollingIntervalRef.current)
       }
     }
-  }, [address, isConnected, showQR])
+  }, [address, isConnected, showQR, fetchTransactions])
 
   // Initial fetch when connected
   useEffect(() => {
@@ -410,12 +387,39 @@ export default function ReceivePage() {
     }
   }
 
+  const copyPaymentLink = () => {
+    if (webUrl) {
+      navigator.clipboard.writeText(webUrl)
+      setCopiedLink(true)
+      setTimeout(() => setCopiedLink(false), 2000)
+    }
+  }
+
+  // Calculate today's total
+  const todayTotal = transactions
+    .filter(tx => {
+      const today = new Date()
+      const txDate = new Date(tx.timestamp)
+      return txDate.getFullYear() === today.getFullYear() &&
+        txDate.getMonth() === today.getMonth() &&
+        txDate.getDate() === today.getDate()
+    })
+    .reduce((sum, tx) => sum + parseFloat(tx.value), 0)
+
+  const todayCount = transactions.filter(tx => {
+    const today = new Date()
+    const txDate = new Date(tx.timestamp)
+    return txDate.getFullYear() === today.getFullYear() &&
+      txDate.getMonth() === today.getMonth() &&
+      txDate.getDate() === today.getDate()
+  }).length
+
   const dismissToast = (id: string) => {
     setToasts(prev => prev.filter(t => t.id !== id))
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-[#0a0a0a]">
       {/* Toast Notifications */}
       <div className="fixed top-4 right-4 z-50 space-y-2">
         {toasts.map((toast) => (
@@ -424,19 +428,22 @@ export default function ReceivePage() {
             className="bg-black text-white p-4 rounded-sm shadow-lg animate-slide-in flex items-center gap-4 min-w-[300px]"
             onClick={() => dismissToast(toast.id)}
           >
-            <div className="w-10 h-10 bg-[#836EF9] rounded-full flex items-center justify-center flex-shrink-0">
-              <Check className="w-5 h-5 text-black" />
+            <div className="w-12 h-12 bg-[#836EF9] rounded-full flex items-center justify-center flex-shrink-0">
+              <Check className="w-6 h-6 text-white" />
             </div>
             <div className="flex-1">
-              <p className="font-bold text-[#836EF9]">
+              <p className="text-[10px] font-bold tracking-[0.1em] uppercase font-mono text-white/40">
+                PAYMENT RECEIVED
+              </p>
+              <p className="text-xl font-bold text-[#836EF9]">
                 +${toast.value} USDC
                 {showMXN && mxnRate && (
-                  <span className="text-xs text-gray-400 ml-1">
+                  <span className="text-sm text-white/40 ml-2">
                     ≈ ${(parseFloat(toast.value) * mxnRate).toFixed(2)} MXN
                   </span>
                 )}
               </p>
-              <p className="text-xs text-gray-400 font-mono">
+              <p className="text-xs text-white/40 font-mono">
                 From {toast.from.slice(0, 8)}...{toast.from.slice(-4)}
               </p>
             </div>
@@ -444,22 +451,22 @@ export default function ReceivePage() {
               href={`${MONAD_EXPLORER}/tx/${toast.hash}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[#836EF9] hover:underline text-xs"
+              className="text-[#836EF9] hover:underline text-xs font-mono font-bold tracking-wider"
               onClick={(e) => e.stopPropagation()}
             >
-              VIEW
+              RECEIPT
             </a>
           </div>
         ))}
       </div>
 
       {/* Header */}
-      <header className="border-b border-[#E5E5E5]">
+      <header className="border-b border-white/10">
         <div className="max-w-4xl mx-auto px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <Link href="/" className="flex items-center gap-3">
               <div className="w-2 h-2 bg-[#836EF9] rounded-full" />
-              <span className="text-xs font-bold tracking-[0.2em] uppercase font-mono">
+              <span className="text-xs font-bold tracking-[0.2em] uppercase font-mono text-white">
                 VOICESWAP
               </span>
             </Link>
@@ -468,7 +475,7 @@ export default function ReceivePage() {
                 {/* Sound toggle */}
                 <button
                   onClick={toggleSound}
-                  className={`p-2 rounded-sm transition-colors ${soundEnabled ? 'text-[#836EF9]' : 'text-[#777777]'}`}
+                  className={`p-2 rounded-sm transition-colors ${soundEnabled ? 'text-[#836EF9]' : 'text-white/40'}`}
                   title={soundEnabled ? 'Sound on' : 'Sound off'}
                 >
                   {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
@@ -477,7 +484,7 @@ export default function ReceivePage() {
                 {/* Notification toggle */}
                 <button
                   onClick={requestNotificationPermission}
-                  className={`p-2 rounded-sm transition-colors ${notificationsEnabled ? 'text-[#836EF9]' : 'text-[#777777]'}`}
+                  className={`p-2 rounded-sm transition-colors ${notificationsEnabled ? 'text-[#836EF9]' : 'text-white/40'}`}
                   title={notificationsEnabled ? 'Notifications on' : 'Enable notifications'}
                 >
                   {notificationsEnabled ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
@@ -485,7 +492,7 @@ export default function ReceivePage() {
 
                 <button
                   onClick={() => disconnect()}
-                  className="px-3 py-1.5 text-[11px] font-bold tracking-[0.1em] uppercase font-mono text-[#777777] hover:text-red-500 transition-colors flex items-center gap-2"
+                  className="px-3 py-1.5 text-[11px] font-bold tracking-[0.1em] uppercase font-mono text-white/40 hover:text-red-400 transition-colors flex items-center gap-2"
                 >
                   <LogOut className="w-3 h-3" />
                   DISCONNECT
@@ -503,14 +510,14 @@ export default function ReceivePage() {
           <div>
             <div className="flex items-center gap-2 mb-3">
               <div className={`w-2 h-2 rounded-full ${isPolling ? 'bg-[#836EF9] animate-pulse' : 'bg-[#836EF9]'}`} />
-              <span className="text-[11px] font-bold tracking-[0.2em] uppercase font-mono">
+              <span className="text-[11px] font-bold tracking-[0.2em] uppercase font-mono text-white">
                 {isPolling ? 'LISTENING FOR PAYMENTS' : 'RECEIVE'}
               </span>
             </div>
-            <h1 className="text-2xl font-bold tracking-tight">
+            <h1 className="text-2xl font-bold tracking-tight text-white">
               Receive Payments
             </h1>
-            <p className="text-sm text-[#777777] mt-2">
+            <p className="text-sm text-white/40 mt-2">
               Generate a QR code to receive USDC on Monad
             </p>
           </div>
@@ -518,14 +525,14 @@ export default function ReceivePage() {
           {!isConnected ? (
             /* Not Connected */
             <div className="space-y-6">
-              <div className="p-8 border border-[#E5E5E5] rounded-sm">
+              <div className="p-8 border border-white/10 rounded-sm">
                 <div className="text-center space-y-4">
-                  <div className="w-12 h-12 bg-[#836EF9]/15 rounded-sm flex items-center justify-center mx-auto">
-                    <Wallet className="w-6 h-6 text-black" strokeWidth={2} />
+                  <div className="w-12 h-12 bg-[#836EF9]/20 rounded-sm flex items-center justify-center mx-auto">
+                    <Wallet className="w-6 h-6 text-white" strokeWidth={2} />
                   </div>
                   <div>
-                    <p className="font-bold">Connect Wallet</p>
-                    <p className="text-sm text-[#777777] mt-1">
+                    <p className="font-bold text-white">Connect Wallet</p>
+                    <p className="text-sm text-white/40 mt-1">
                       Link your wallet to generate a payment QR code
                     </p>
                   </div>
@@ -538,7 +545,7 @@ export default function ReceivePage() {
                   </button>
                 </div>
               </div>
-              <p className="text-[11px] text-[#777777] font-mono text-center">
+              <p className="text-[11px] text-white/30 font-mono text-center">
                 Supports WalletConnect wallets on Monad
               </p>
             </div>
@@ -546,16 +553,16 @@ export default function ReceivePage() {
             /* Connected - Setup */
             <div className="space-y-6">
               {/* Connection Status */}
-              <div className="flex items-center justify-between p-4 border border-[#E5E5E5] rounded-sm">
+              <div className="flex items-center justify-between p-4 border border-white/10 rounded-sm">
                 <div className="flex items-center gap-3">
                   <div className="w-2 h-2 bg-[#836EF9] rounded-full animate-pulse" />
                   <div>
-                    <p className="text-[11px] font-bold tracking-[0.1em] uppercase font-mono text-[#777777]">
+                    <p className="text-[11px] font-bold tracking-[0.1em] uppercase font-mono text-white/40">
                       CONNECTED
                     </p>
                     <button
                       onClick={copyAddress}
-                      className="text-sm font-mono hover:text-[#836EF9] transition-colors flex items-center gap-1"
+                      className="text-sm font-mono text-white hover:text-[#836EF9] transition-colors flex items-center gap-1"
                     >
                       {address?.slice(0, 8)}...{address?.slice(-6)}
                       {copied ? <Check className="w-3 h-3 text-[#836EF9]" /> : <Copy className="w-3 h-3" />}
@@ -566,35 +573,35 @@ export default function ReceivePage() {
 
               {/* Wallet Balance */}
               {walletBalance && walletBalance.nativeMON && (
-                <div className="p-4 border border-[#E5E5E5] rounded-sm">
+                <div className="p-4 border border-white/10 rounded-sm">
                   <div className="flex items-center justify-between mb-3">
-                    <span className="text-[11px] font-bold tracking-[0.1em] uppercase font-mono text-[#777777]">
+                    <span className="text-[11px] font-bold tracking-[0.1em] uppercase font-mono text-white/40">
                       BALANCE
                     </span>
                     <button
                       onClick={() => setShowMXN(!showMXN)}
-                      className="text-[10px] font-bold tracking-[0.05em] uppercase font-mono px-2 py-0.5 border border-[#E5E5E5] rounded-sm hover:border-[#836EF9] transition-colors"
+                      className="text-[10px] font-bold tracking-[0.05em] uppercase font-mono px-2 py-0.5 border border-white/20 rounded-sm text-white/40 hover:border-[#836EF9] hover:text-[#836EF9] transition-colors"
                     >
                       {showMXN ? 'USD' : 'MXN'}
                     </button>
                   </div>
-                  <p className="text-2xl font-bold">
+                  <p className="text-2xl font-bold text-white">
                     {formatBalance(walletBalance.totalUSD)}
                   </p>
                   <div className="mt-3 space-y-1.5">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="font-mono text-[#777777]">MON</span>
-                      <span className="font-mono">{parseFloat(walletBalance.nativeMON.balance || '0').toFixed(4)}</span>
+                      <span className="font-mono text-white/40">MON</span>
+                      <span className="font-mono text-white">{parseFloat(walletBalance.nativeMON.balance || '0').toFixed(4)}</span>
                     </div>
                     {(walletBalance.tokens || []).map((token) => (
                       <div key={token.symbol} className="flex items-center justify-between text-sm">
-                        <span className="font-mono text-[#777777]">{token.symbol}</span>
-                        <span className="font-mono">{parseFloat(token.balance || '0').toFixed(token.symbol === 'USDC' ? 2 : 4)}</span>
+                        <span className="font-mono text-white/40">{token.symbol}</span>
+                        <span className="font-mono text-white">{parseFloat(token.balance || '0').toFixed(token.symbol === 'USDC' ? 2 : 4)}</span>
                       </div>
                     ))}
                   </div>
                   {walletBalance.monPriceUSD > 0 && (
-                    <p className="text-[10px] text-[#777777] font-mono mt-2">
+                    <p className="text-[10px] text-white/30 font-mono mt-2">
                       1 MON = {showMXN && mxnRate
                         ? `$${(walletBalance.monPriceUSD * mxnRate).toFixed(2)} MXN`
                         : `$${walletBalance.monPriceUSD.toFixed(2)} USD`}
@@ -606,7 +613,7 @@ export default function ReceivePage() {
               {/* Form */}
               <div className="space-y-4">
                 <div>
-                  <label className="block text-[11px] font-bold tracking-[0.1em] uppercase font-mono text-[#777777] mb-2">
+                  <label className="block text-[11px] font-bold tracking-[0.1em] uppercase font-mono text-white/40 mb-2">
                     CONCEPT (OPTIONAL)
                   </label>
                   <input
@@ -614,12 +621,12 @@ export default function ReceivePage() {
                     value={concept}
                     onChange={(e) => handleConceptChange(e.target.value)}
                     placeholder="e.g. Coffee, Lunch, Services"
-                    className="w-full px-4 py-3 border border-[#E5E5E5] text-sm font-mono focus:outline-none focus:border-[#836EF9] placeholder:text-[#777777]"
+                    className="w-full px-4 py-3 bg-transparent border border-white/10 text-sm font-mono text-white focus:outline-none focus:border-[#836EF9] placeholder:text-white/30"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold tracking-[0.1em] uppercase font-mono text-[#777777] mb-2">
+                  <label className="block text-[11px] font-bold tracking-[0.1em] uppercase font-mono text-white/40 mb-2">
                     AMOUNT IN USDC (OPTIONAL)
                   </label>
                   <input
@@ -629,7 +636,7 @@ export default function ReceivePage() {
                     placeholder="e.g. 25.00"
                     step="0.01"
                     min="0"
-                    className="w-full px-4 py-3 border border-[#E5E5E5] text-sm font-mono focus:outline-none focus:border-[#836EF9] placeholder:text-[#777777]"
+                    className="w-full px-4 py-3 bg-transparent border border-white/10 text-sm font-mono text-white focus:outline-none focus:border-[#836EF9] placeholder:text-white/30"
                   />
                 </div>
 
@@ -645,17 +652,43 @@ export default function ReceivePage() {
           ) : (
             /* Show QR Code */
             <div className="space-y-6">
-              {/* Listening indicator */}
-              <div className="flex items-center justify-center gap-2 p-3 bg-[#836EF9]/10 rounded-sm">
-                <div className="w-2 h-2 bg-[#836EF9] rounded-full animate-pulse" />
-                <span className="text-[11px] font-bold tracking-[0.1em] uppercase font-mono">
-                  LISTENING FOR PAYMENTS
-                </span>
+              {/* Hero Balance — big and prominent like a POS terminal */}
+              <div className="p-8 bg-black rounded-sm text-center">
+                <p className="text-[11px] font-bold tracking-[0.2em] uppercase font-mono text-white/40 mb-2">
+                  MERCHANT BALANCE
+                </p>
+                <p className="text-5xl font-bold text-[#836EF9] tabular-nums">
+                  {walletBalance ? formatBalance(walletBalance.totalUSD) : '$—'}
+                </p>
+                {walletBalance && (
+                  <div className="mt-4 flex items-center justify-center gap-4">
+                    {(walletBalance.tokens || []).filter(t => t.symbol === 'USDC').map(token => (
+                      <span key={token.symbol} className="text-sm font-mono text-white">
+                        {parseFloat(token.balance || '0').toFixed(2)} USDC
+                      </span>
+                    ))}
+                    <span className="text-sm font-mono text-white/40">
+                      {parseFloat(walletBalance.nativeMON?.balance || '0').toFixed(4)} MON
+                    </span>
+                    <button
+                      onClick={() => setShowMXN(!showMXN)}
+                      className="text-[10px] font-bold tracking-[0.05em] uppercase font-mono px-2 py-0.5 border border-white/20 rounded-sm text-white/40 hover:border-[#836EF9] hover:text-[#836EF9] transition-colors"
+                    >
+                      {showMXN ? 'USD' : 'MXN'}
+                    </button>
+                  </div>
+                )}
+                <div className="mt-3 flex items-center justify-center gap-2">
+                  <div className="w-2 h-2 bg-[#836EF9] rounded-full animate-pulse" />
+                  <span className="text-[11px] font-bold tracking-[0.1em] uppercase font-mono text-[#836EF9]">
+                    LISTENING FOR PAYMENTS
+                  </span>
+                </div>
               </div>
 
               {/* QR Code Card */}
-              <div className="p-8 border border-[#E5E5E5] rounded-sm text-center">
-                <div className="inline-block p-4 bg-white border border-[#E5E5E5]">
+              <div className="p-8 border border-white/10 rounded-sm text-center">
+                <div className="inline-block p-4 bg-white border border-white/10">
                   <QRCodeSVG
                     value={paymentUrl}
                     size={200}
@@ -663,21 +696,21 @@ export default function ReceivePage() {
                     marginSize={2}
                   />
                 </div>
-                <p className="mt-4 font-bold">
+                <p className="mt-4 font-bold text-white">
                   {concept || 'Scan to Pay'}
                   {amount && <span className="text-[#836EF9]"> · ${amount} USDC</span>}
                 </p>
-                <p className="mt-2 text-[11px] text-[#777777] font-mono">
+                <p className="mt-2 text-[11px] text-white/40 font-mono">
                   {address?.slice(0, 12)}...{address?.slice(-10)}
                 </p>
               </div>
 
               {/* Instructions */}
-              <div className="p-4 bg-[#FAFAFA] rounded-sm">
-                <p className="text-[11px] font-bold tracking-[0.1em] uppercase font-mono text-[#777777] mb-3">
+              <div className="p-4 bg-white/5 rounded-sm">
+                <p className="text-[11px] font-bold tracking-[0.1em] uppercase font-mono text-white/40 mb-3">
                   HOW CUSTOMERS PAY
                 </p>
-                <ol className="text-sm text-[#777777] space-y-2">
+                <ol className="text-sm text-white/40 space-y-2">
                   <li className="flex gap-2">
                     <span className="text-[#836EF9] font-bold">1.</span>
                     Open any crypto wallet (Zerion, MetaMask, Rainbow)
@@ -697,7 +730,7 @@ export default function ReceivePage() {
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowQR(false)}
-                  className="flex-1 px-4 py-3 border border-[#E5E5E5] text-black text-[11px] font-bold tracking-[0.1em] uppercase font-mono hover:border-black transition-colors"
+                  className="flex-1 px-4 py-3 border border-white/10 text-white text-[11px] font-bold tracking-[0.1em] uppercase font-mono hover:border-white/40 transition-colors"
                 >
                   EDIT
                 </button>
@@ -713,16 +746,25 @@ export default function ReceivePage() {
                   WHATSAPP
                 </a>
               </div>
+
+              {/* Copy Payment Link */}
+              <button
+                onClick={copyPaymentLink}
+                className="w-full px-4 py-3 border border-white/10 text-white/40 text-[11px] font-bold tracking-[0.1em] uppercase font-mono hover:border-[#836EF9] hover:text-[#836EF9] transition-colors flex items-center justify-center gap-2"
+              >
+                {copiedLink ? <Check className="w-4 h-4" /> : <Link2 className="w-4 h-4" />}
+                {copiedLink ? 'LINK COPIED' : 'COPY PAYMENT LINK'}
+              </button>
             </div>
           )}
 
           {/* Stats Dashboard */}
           {isConnected && (
-            <div className="pt-8 border-t border-[#E5E5E5]">
+            <div className="pt-8 border-t border-white/10">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 bg-[#836EF9] rounded-full" />
-                  <span className="text-[11px] font-bold tracking-[0.2em] uppercase font-mono">
+                  <span className="text-[11px] font-bold tracking-[0.2em] uppercase font-mono text-white">
                     DASHBOARD
                   </span>
                 </div>
@@ -730,20 +772,20 @@ export default function ReceivePage() {
                   <button
                     onClick={exportToCSV}
                     disabled={transactions.length === 0}
-                    className="p-1.5 hover:bg-[#FAFAFA] transition-colors disabled:opacity-50"
+                    className="p-1.5 hover:bg-white/5 transition-colors disabled:opacity-50"
                     title="Export CSV"
                   >
-                    <Download className="w-4 h-4 text-[#777777]" />
+                    <Download className="w-4 h-4 text-white/40" />
                   </button>
                   <button
                     onClick={() => {
                       setShowStats(!showStats)
                       if (!stats) fetchStats()
                     }}
-                    className={`p-1.5 hover:bg-[#FAFAFA] transition-colors ${showStats ? 'bg-[#836EF9]/10' : ''}`}
+                    className={`p-1.5 hover:bg-white/5 transition-colors ${showStats ? 'bg-[#836EF9]/10' : ''}`}
                     title="Toggle stats"
                   >
-                    <BarChart3 className={`w-4 h-4 ${showStats ? 'text-[#836EF9]' : 'text-[#777777]'}`} />
+                    <BarChart3 className={`w-4 h-4 ${showStats ? 'text-[#836EF9]' : 'text-white/40'}`} />
                   </button>
                 </div>
               </div>
@@ -753,24 +795,24 @@ export default function ReceivePage() {
                 <div className="mb-6 space-y-4">
                   {/* Summary Cards */}
                   <div className="grid grid-cols-3 gap-3">
-                    <div className="p-4 border border-[#E5E5E5] rounded-sm text-center">
+                    <div className="p-4 border border-white/10 rounded-sm text-center">
                       <p className="text-2xl font-bold text-[#836EF9]">{formatBalance(stats.totalAmount)}</p>
-                      <p className="text-[10px] font-bold tracking-[0.1em] uppercase font-mono text-[#777777] mt-1">
+                      <p className="text-[10px] font-bold tracking-[0.1em] uppercase font-mono text-white/40 mt-1">
                         TOTAL
                       </p>
                     </div>
-                    <div className="p-4 border border-[#E5E5E5] rounded-sm text-center">
-                      <p className="text-2xl font-bold">{stats.totalPayments}</p>
-                      <p className="text-[10px] font-bold tracking-[0.1em] uppercase font-mono text-[#777777] mt-1">
+                    <div className="p-4 border border-white/10 rounded-sm text-center">
+                      <p className="text-2xl font-bold text-white">{stats.totalPayments}</p>
+                      <p className="text-[10px] font-bold tracking-[0.1em] uppercase font-mono text-white/40 mt-1">
                         PAYMENTS
                       </p>
                     </div>
-                    <div className="p-4 border border-[#E5E5E5] rounded-sm text-center">
+                    <div className="p-4 border border-white/10 rounded-sm text-center">
                       <div className="flex items-center justify-center gap-1">
-                        <Users className="w-5 h-5 text-[#777777]" />
-                        <p className="text-2xl font-bold">{stats.uniquePayers}</p>
+                        <Users className="w-5 h-5 text-white/40" />
+                        <p className="text-2xl font-bold text-white">{stats.uniquePayers}</p>
                       </div>
-                      <p className="text-[10px] font-bold tracking-[0.1em] uppercase font-mono text-[#777777] mt-1">
+                      <p className="text-[10px] font-bold tracking-[0.1em] uppercase font-mono text-white/40 mt-1">
                         PAYERS
                       </p>
                     </div>
@@ -778,20 +820,20 @@ export default function ReceivePage() {
 
                   {/* Concept Breakdown */}
                   {stats.conceptBreakdown.length > 0 && (
-                    <div className="border border-[#E5E5E5] rounded-sm">
-                      <div className="p-3 border-b border-[#E5E5E5]">
-                        <p className="text-[10px] font-bold tracking-[0.1em] uppercase font-mono text-[#777777]">
+                    <div className="border border-white/10 rounded-sm">
+                      <div className="p-3 border-b border-white/10">
+                        <p className="text-[10px] font-bold tracking-[0.1em] uppercase font-mono text-white/40">
                           BY CONCEPT
                         </p>
                       </div>
-                      <div className="divide-y divide-[#E5E5E5]">
+                      <div className="divide-y divide-white/10">
                         {stats.conceptBreakdown.map((item, idx) => (
                           <div key={idx} className="p-3 flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              <span className="px-2 py-0.5 bg-[#836EF9]/10 text-[10px] font-bold tracking-[0.05em] uppercase font-mono text-black rounded-sm">
+                              <span className="px-2 py-0.5 bg-[#836EF9]/10 text-[10px] font-bold tracking-[0.05em] uppercase font-mono text-white rounded-sm">
                                 {item.concept}
                               </span>
-                              <span className="text-[11px] text-[#777777] font-mono">
+                              <span className="text-[11px] text-white/40 font-mono">
                                 {item.count} {item.count === 1 ? 'payment' : 'payments'}
                               </span>
                             </div>
@@ -806,9 +848,9 @@ export default function ReceivePage() {
 
               {/* Loading stats */}
               {showStats && !stats && (
-                <div className="mb-6 p-8 border border-[#E5E5E5] rounded-sm text-center">
-                  <RefreshCw className="w-5 h-5 animate-spin mx-auto text-[#777777]" />
-                  <p className="text-sm text-[#777777] mt-2">Loading stats...</p>
+                <div className="mb-6 p-8 border border-white/10 rounded-sm text-center">
+                  <RefreshCw className="w-5 h-5 animate-spin mx-auto text-white/40" />
+                  <p className="text-sm text-white/40 mt-2">Loading stats...</p>
                 </div>
               )}
             </div>
@@ -819,26 +861,44 @@ export default function ReceivePage() {
             <div className="pt-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-black rounded-full" />
-                  <span className="text-[11px] font-bold tracking-[0.2em] uppercase font-mono">
+                  <div className="w-2 h-2 bg-white rounded-full" />
+                  <span className="text-[11px] font-bold tracking-[0.2em] uppercase font-mono text-white">
                     RECENT PAYMENTS
                   </span>
                 </div>
                 <button
                   onClick={() => fetchTransactions()}
                   disabled={loadingTxs}
-                  className="p-1.5 hover:bg-[#FAFAFA] transition-colors disabled:opacity-50"
+                  className="p-1.5 hover:bg-white/5 transition-colors disabled:opacity-50"
                   title="Refresh"
                 >
-                  <RefreshCw className={`w-4 h-4 text-[#777777] ${loadingTxs ? 'animate-spin' : ''}`} />
+                  <RefreshCw className={`w-4 h-4 text-white/40 ${loadingTxs ? 'animate-spin' : ''}`} />
                 </button>
               </div>
 
-              <div className="border border-[#E5E5E5] rounded-sm">
+              {/* Today's Summary */}
+              {transactions.length > 0 && todayCount > 0 && (
+                <div className="mb-4 p-4 border border-[#836EF9]/20 bg-[#836EF9]/5 rounded-sm flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] font-bold tracking-[0.1em] uppercase font-mono text-white/40">TODAY</p>
+                    <p className="text-2xl font-bold text-[#836EF9] tabular-nums">
+                      {formatBalance(todayTotal)}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-white tabular-nums">{todayCount}</p>
+                    <p className="text-[10px] font-bold tracking-[0.1em] uppercase font-mono text-white/40">
+                      {todayCount === 1 ? 'PAYMENT' : 'PAYMENTS'}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <div className="border border-white/10 rounded-sm">
                 {loadingTxs ? (
                   <div className="p-8 text-center">
-                    <RefreshCw className="w-5 h-5 animate-spin mx-auto text-[#777777]" />
-                    <p className="text-sm text-[#777777] mt-2">Loading...</p>
+                    <RefreshCw className="w-5 h-5 animate-spin mx-auto text-white/40" />
+                    <p className="text-sm text-white/40 mt-2">Loading...</p>
                   </div>
                 ) : txError ? (
                   <div className="p-8 text-center">
@@ -852,48 +912,124 @@ export default function ReceivePage() {
                   </div>
                 ) : transactions.length === 0 ? (
                   <div className="p-8 text-center">
-                    <p className="text-sm text-[#777777]">No payments received yet</p>
-                    <p className="text-[11px] text-[#777777] mt-1 font-mono">
+                    <p className="text-sm text-white/40">No payments received yet</p>
+                    <p className="text-[11px] text-white/40 mt-1 font-mono">
                       Payments will appear here
                     </p>
                   </div>
                 ) : (
-                  <div className="divide-y divide-[#E5E5E5]">
+                  <div className="divide-y divide-white/10">
                     {transactions.map((tx, index) => (
-                      <div key={tx.hash + index} className="p-4 hover:bg-[#FAFAFA] transition-colors">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <p className="font-bold text-[#836EF9]">+${tx.value} USDC</p>
-                              {showMXN && mxnRate && (
-                                <span className="text-[11px] text-[#777777] font-mono">
-                                  ≈ ${(parseFloat(tx.value) * mxnRate).toFixed(2)} MXN
+                      <div key={tx.hash + index} className="transition-colors">
+                        <button
+                          onClick={() => setExpandedTx(expandedTx === tx.hash ? null : tx.hash)}
+                          className="w-full p-4 hover:bg-white/5 text-left"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="font-bold text-[#836EF9]">+${tx.value} USDC</p>
+                                {showMXN && mxnRate && (
+                                  <span className="text-[11px] text-white/40 font-mono">
+                                    ≈ ${(parseFloat(tx.value) * mxnRate).toFixed(2)} MXN
+                                  </span>
+                                )}
+                                {tx.concept && (
+                                  <span className="px-2 py-0.5 bg-[#836EF9]/10 text-[10px] font-bold tracking-[0.05em] uppercase font-mono text-white rounded-sm">
+                                    {tx.concept}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="px-1.5 py-0.5 bg-[#836EF9]/10 text-[9px] font-bold tracking-[0.05em] uppercase font-mono text-[#836EF9] rounded-sm">
+                                  MONAD
                                 </span>
-                              )}
-                              {tx.concept && (
-                                <span className="px-2 py-0.5 bg-[#836EF9]/10 text-[10px] font-bold tracking-[0.05em] uppercase font-mono text-black rounded-sm">
-                                  {tx.concept}
-                                </span>
-                              )}
+                                <p className="text-[11px] text-white/40 font-mono">
+                                  {tx.from.slice(0, 8)}...{tx.from.slice(-6)}
+                                </p>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className="px-1.5 py-0.5 bg-[#836EF9]/10 text-[9px] font-bold tracking-[0.05em] uppercase font-mono text-[#836EF9] rounded-sm">
-                                MONAD
-                              </span>
-                              <p className="text-[11px] text-[#777777] font-mono">
-                                {tx.from.slice(0, 8)}...{tx.from.slice(-6)}
-                              </p>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              {expandedTx === tx.hash
+                                ? <ChevronUp className="w-4 h-4 text-white/30" />
+                                : <ChevronDown className="w-4 h-4 text-white/30" />
+                              }
                             </div>
                           </div>
-                          <a
-                            href={`${MONAD_EXPLORER}/tx/${tx.hash}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-[11px] font-mono text-[#777777] hover:text-[#836EF9] transition-colors flex items-center gap-1 flex-shrink-0"
-                          >
-                            VIEW <ExternalLink className="w-3 h-3" />
-                          </a>
-                        </div>
+                        </button>
+
+                        {/* Expanded Receipt */}
+                        {expandedTx === tx.hash && (
+                          <div className="px-4 pb-4">
+                            <div className="p-4 bg-white/5 border border-white/10 rounded-sm space-y-3">
+                              <div className="flex items-center justify-between">
+                                <p className="text-[10px] font-bold tracking-[0.15em] uppercase font-mono text-white/30">RECEIPT</p>
+                                <div className="flex items-center gap-1">
+                                  <div className="w-1.5 h-1.5 bg-[#836EF9] rounded-full" />
+                                  <span className="text-[9px] font-bold tracking-[0.1em] uppercase font-mono text-[#836EF9]">CONFIRMED</span>
+                                </div>
+                              </div>
+
+                              <div className="h-[1px] bg-white/10" />
+
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <p className="text-[9px] font-bold tracking-[0.1em] uppercase font-mono text-white/30 mb-1">AMOUNT</p>
+                                  <p className="text-lg font-bold text-[#836EF9]">${tx.value} USDC</p>
+                                  {showMXN && mxnRate && (
+                                    <p className="text-[11px] text-white/30 font-mono">
+                                      ≈ ${(parseFloat(tx.value) * mxnRate).toFixed(2)} MXN
+                                    </p>
+                                  )}
+                                </div>
+                                <div>
+                                  <p className="text-[9px] font-bold tracking-[0.1em] uppercase font-mono text-white/30 mb-1">NETWORK</p>
+                                  <p className="text-sm font-bold text-white">Monad</p>
+                                  <p className="text-[11px] text-white/30 font-mono">Block #{tx.blockNumber}</p>
+                                </div>
+                              </div>
+
+                              {tx.concept && (
+                                <div>
+                                  <p className="text-[9px] font-bold tracking-[0.1em] uppercase font-mono text-white/30 mb-1">CONCEPT</p>
+                                  <p className="text-sm text-white">{tx.concept}</p>
+                                </div>
+                              )}
+
+                              <div>
+                                <p className="text-[9px] font-bold tracking-[0.1em] uppercase font-mono text-white/30 mb-1">FROM</p>
+                                <p className="text-[11px] text-white/60 font-mono break-all">{tx.from}</p>
+                              </div>
+
+                              <div>
+                                <p className="text-[9px] font-bold tracking-[0.1em] uppercase font-mono text-white/30 mb-1">TRANSACTION HASH</p>
+                                <p className="text-[11px] text-white/60 font-mono break-all">{tx.hash}</p>
+                              </div>
+
+                              {tx.timestamp > 0 && (
+                                <div>
+                                  <p className="text-[9px] font-bold tracking-[0.1em] uppercase font-mono text-white/30 mb-1">DATE</p>
+                                  <p className="text-sm text-white/60 font-mono">
+                                    {new Date(tx.timestamp).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                                    {' '}
+                                    {new Date(tx.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                                  </p>
+                                </div>
+                              )}
+
+                              <div className="h-[1px] bg-white/10" />
+
+                              <a
+                                href={`${MONAD_EXPLORER}/tx/${tx.hash}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center justify-center gap-2 w-full py-2.5 border border-white/10 text-[11px] font-bold tracking-[0.1em] uppercase font-mono text-[#836EF9] hover:border-[#836EF9] transition-colors"
+                              >
+                                VIEW ON MONADSCAN <ExternalLink className="w-3 h-3" />
+                              </a>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -905,9 +1041,9 @@ export default function ReceivePage() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-[#E5E5E5] mt-12">
+      <footer className="border-t border-white/10 mt-12">
         <div className="max-w-4xl mx-auto px-6 py-6 text-center">
-          <p className="text-[11px] font-medium tracking-[0.05em] uppercase text-[#777777] font-mono">
+          <p className="text-[11px] font-medium tracking-[0.05em] uppercase text-white/30 font-mono">
             POWERED BY MONAD
           </p>
         </div>

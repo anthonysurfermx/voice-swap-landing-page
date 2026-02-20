@@ -1,7 +1,7 @@
 "use client"
 
 export function TechStack() {
-  const technologies = ["Monad", "Uniswap V3", "WalletConnect", "Gemini AI", "USDC"]
+  const technologies = ["Monad", "Gemini Live", "Meta Ray-Ban", "USDC", "On-Device Signing", "Multimodal AI"]
 
   return (
     <section className="py-6 overflow-hidden border-y border-white/5">

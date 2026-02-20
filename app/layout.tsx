@@ -15,10 +15,10 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "VoiceSwap — Pay with your voice, through AI glasses",
+  title: "VoiceSwap — The AI payment agent that lives in your glasses",
   description:
-    "Scan. Speak. Paid. Voice-activated payments for smart AI glasses. No phone, no friction — just you and your glasses.",
-  keywords: ["voice payments", "AI glasses", "smart glasses", "USDC", "Monad", "contactless payments"],
+    "An autonomous AI agent on Meta Ray-Ban glasses. It sees, listens, and pays — on Monad. No phone, no wallet apps, no friction.",
+  keywords: ["AI agent", "autonomous payments", "Meta Ray-Ban", "smart glasses", "Monad", "Gemini Live", "USDC", "voice payments"],
   icons: {
     icon: [
       {
@@ -36,10 +36,27 @@ export const metadata: Metadata = {
     ],
     apple: "/apple-icon.png",
   },
+  metadataBase: new URL("https://www.voiceswap.cc"),
   openGraph: {
-    title: "VoiceSwap — Pay with your voice, through AI glasses",
-    description: "Scan. Speak. Paid. Voice-activated payments for smart AI glasses.",
+    title: "VoiceSwap — The AI payment agent that lives in your glasses",
+    description: "An autonomous AI agent on Meta Ray-Ban glasses. It sees, listens, and pays — on Monad. No phone, no wallet apps, no friction.",
     type: "website",
+    url: "https://www.voiceswap.cc",
+    siteName: "VoiceSwap",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "VoiceSwap — The AI payment agent that lives in your glasses",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "VoiceSwap — The AI payment agent that lives in your glasses",
+    description: "An autonomous AI agent on Meta Ray-Ban glasses. It sees, listens, and pays — on Monad.",
+    images: ["/og-image.png"],
   },
 }
 
@@ -50,7 +67,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${geist.variable} ${geistMono.variable}`}>
-      <body className="font-sans antialiased bg-[#0a0a0a] text-white">
+      <body className="font-sans antialiased bg-black text-white">
         {children}
         <Analytics />
       </body>

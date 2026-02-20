@@ -4,39 +4,42 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: #0a0a0a;
+  --background: #000000;
   --foreground: #ffffff;
-  --card: #111111;
+  --card: #0a0a0a;
   --card-foreground: #ffffff;
-  --popover: #111111;
+  --popover: #0a0a0a;
   --popover-foreground: #ffffff;
-  --primary: #836EF9;
-  --primary-foreground: #ffffff;
-  --primary-light: #A18FFF;
-  --secondary: #1a1a1a;
+  --primary: #ffffff;
+  --primary-foreground: #000000;
+  --primary-light: #e5e5e5;
+  --secondary: #0d0d0d;
   --secondary-foreground: #ffffff;
-  --muted: #1a1a1a;
-  --muted-foreground: #999999;
-  --accent: #836EF9;
-  --accent-foreground: #ffffff;
+  --muted: #0d0d0d;
+  --muted-foreground: #707070;
+  --accent: #ffffff;
+  --accent-foreground: #000000;
   --destructive: #FF3B30;
   --destructive-foreground: #ffffff;
-  --success: #836EF9;
-  --success-foreground: #ffffff;
-  --border: #222222;
-  --border-dark: #333333;
-  --input: #1a1a1a;
-  --ring: #836EF9;
-  --divider: #222222;
+  --success: #22c55e;
+  --success-foreground: #000000;
+  --border: #1a1a1a;
+  --border-dark: #232323;
+  --border-light: #2a2a2a;
+  --input: #0d0d0d;
+  --ring: #ffffff;
+  --divider: #1a1a1a;
   --radius: 0px;
-  --sidebar: #0a0a0a;
+  --text-secondary: #505050;
+  --text-tertiary: #383838;
+  --sidebar: #000000;
   --sidebar-foreground: #ffffff;
-  --sidebar-primary: #836EF9;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #1a1a1a;
+  --sidebar-primary: #ffffff;
+  --sidebar-primary-foreground: #000000;
+  --sidebar-accent: #0d0d0d;
   --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: #222222;
-  --sidebar-ring: #836EF9;
+  --sidebar-border: #1a1a1a;
+  --sidebar-ring: #ffffff;
 }
 
 .dark {
@@ -152,38 +155,26 @@
   .stagger-4 { transition-delay: 0.4s; }
   .stagger-5 { transition-delay: 0.5s; }
 
-  /* Purple glow effects */
-  .glow-purple {
-    box-shadow: 0 0 60px rgba(131, 110, 249, 0.15),
-                0 0 120px rgba(131, 110, 249, 0.05);
+  /* Grid background pattern (Profound style) */
+  .grid-bg {
+    background-image:
+      linear-gradient(to right, var(--border) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--border) 1px, transparent 1px);
+    background-size: 80px 80px;
   }
-  .glow-purple-strong {
-    box-shadow: 0 0 40px rgba(131, 110, 249, 0.3),
-                0 0 80px rgba(131, 110, 249, 0.1);
-  }
-
-  /* Gradient text */
-  .text-gradient-purple {
-    background: linear-gradient(135deg, #836EF9 0%, #A18FFF 50%, #C4B5FF 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+  .grid-bg-dense {
+    background-image:
+      linear-gradient(to right, var(--border) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--border) 1px, transparent 1px);
+    background-size: 40px 40px;
   }
 
-  /* Video/image placeholder overlay */
-  .media-overlay {
-    position: relative;
-  }
-  .media-overlay::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(180deg,
-      rgba(10, 10, 10, 0.3) 0%,
-      transparent 30%,
-      transparent 60%,
-      rgba(10, 10, 10, 0.8) 100%);
-    pointer-events: none;
+  /* Dashed grid (subtle architectural feel) */
+  .grid-dashed {
+    background-image:
+      repeating-linear-gradient(to right, var(--border) 0px, var(--border) 2px, transparent 2px, transparent 12px),
+      repeating-linear-gradient(to bottom, var(--border) 0px, var(--border) 2px, transparent 2px, transparent 12px);
+    background-size: 80px 80px;
   }
 
   /* Horizontal line animation */
