@@ -1125,6 +1125,16 @@ export default function PredictChat() {
     setOnboarded(true)
   }
 
+  // AI Gate state
+  const [aiGateEligible, setAiGateEligible] = useState(false)
+  useEffect(() => {
+    if (!address) return
+    fetch(`/api/groups/check?wallet=${address}`)
+      .then(r => r.json())
+      .then(d => setAiGateEligible(d.eligible === true))
+      .catch(() => setAiGateEligible(false))
+  }, [address])
+
   // Chat state
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [inputText, setInputText] = useState('')
@@ -1385,6 +1395,18 @@ export default function PredictChat() {
   // Step 2 -> Step 3: User clicks "EXPLICAR CON IA" after Agent Radar
   const handleExplainWithAI = useCallback(async (analysis: DeepAnalysisResult, market: MarketInfo) => {
     if (isProcessing) return
+
+    // AI Gate: require group with 2+ members
+    if (!aiGateEligible) {
+      addMessage('assistant', lang === 'es'
+        ? 'Para usar "Explicar con IA", crea un grupo e invita al menos 1 amigo. Ve a betwhisper.ai/predict y crea tu grupo.'
+        : lang === 'pt'
+        ? 'Para usar "Explicar com IA", crie um grupo e convide pelo menos 1 amigo.'
+        : 'To use "Explain with AI", create a group and invite at least 1 friend. Go to the Groups section to get started.',
+        { type: 'error', text: 'AI Gate: Group required' })
+      return
+    }
+
     addMessage('user', t(lang, 'explainWithAI'))
     setIsProcessing(true)
     const loadingId = addMessage('assistant', '', { type: 'loading', text: t(lang, 'explaining') })
@@ -1435,7 +1457,7 @@ export default function PredictChat() {
     } finally {
       setIsProcessing(false)
     }
-  }, [isProcessing, addMessage, removeMessage, lang])
+  }, [isProcessing, addMessage, removeMessage, lang, aiGateEligible])
 
   // Step 3 -> Step 3.5: Ask how much to invest
   const handleAskAmount = useCallback((market: MarketInfo, analysis: DeepAnalysisResult) => {

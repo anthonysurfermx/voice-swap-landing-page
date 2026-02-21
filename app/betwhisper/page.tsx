@@ -108,7 +108,7 @@ function ConversationDemo() {
     { who: 'agent', text: 'Chiefs at $0.62 YES. Scanning 29 whale wallets...' },
     { who: 'agent', text: '4 tracked wallets found. 78% weighted consensus YES.', tag: 'SIGNAL' },
     { who: 'agent', text: '2 AI agents detected. Consensus may be inflated.', tag: 'WARNING' },
-    { who: 'user', text: `${name}, bet 0.01 MON on Yes` },
+    { who: 'user', text: `${name}, bet $5 on Yes` },
   ]
 
   return (
@@ -158,7 +158,7 @@ function ConversationDemo() {
         {step >= 5 && (
           <div className="flex items-center gap-2 pt-2 border-t border-[--border-light]">
             <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
-            <span className="text-[12px] text-emerald-500 font-mono">Confirmed on Monad. Block #142,857</span>
+            <span className="text-[12px] text-emerald-500 font-mono">Confirmed on Polymarket. $5 YES at 0.62</span>
           </div>
         )}
       </div>
@@ -202,6 +202,12 @@ export default function BetWhisperLanding() {
             >
               Agent Shield
             </a>
+            <a
+              href="#groups"
+              className="text-[13px] text-[--text-secondary] hover:text-white transition-colors duration-200 hidden sm:block"
+            >
+              Groups
+            </a>
             <Link
               href="/predict"
               className="px-4 py-2 bg-white text-black text-[13px] font-semibold hover:bg-white/90 transition-colors duration-200 active:scale-[0.97]"
@@ -221,7 +227,7 @@ export default function BetWhisperLanding() {
               loaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
             }`}>
               <span className="text-[13px] text-[--text-secondary]">
-                Your voice interface to prediction markets on Monad
+                Your voice interface to prediction markets on Polymarket
               </span>
             </div>
 
@@ -238,7 +244,7 @@ export default function BetWhisperLanding() {
             <p className={`text-[16px] md:text-[18px] text-[--text-secondary] max-w-xl leading-relaxed mb-10 transition-all duration-700 delay-500 ${
               loaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
             }`}>
-              Name your AI assistant. Ask it about any prediction market. It scans 29 whale wallets, warns you about bots, and places your bet on Monad. Text it, send a voice message, or talk through your smart glasses.
+              Name your AI assistant. Ask it about any prediction market. It scans 29 whale wallets, warns you about bots, and executes your bet on Polymarket CLOB. Talk through your smart glasses, send a voice note, or type.
             </p>
 
             {/* CTAs */}
@@ -327,7 +333,7 @@ export default function BetWhisperLanding() {
               {
                 num: '03',
                 title: 'Bet',
-                desc: 'Place your bet on Monad with a voice command. Signal hash recorded on-chain for data provenance. Verified on MonadScan.',
+                desc: 'Place your bet on Polymarket CLOB with a voice command or a single tap. Fill-or-kill execution with slippage protection. Signal hash recorded on Monad.',
               },
             ].map((step, i) => (
               <div
@@ -434,13 +440,13 @@ export default function BetWhisperLanding() {
               {
                 icon: '🎙️',
                 title: 'Voice Message',
-                desc: 'Send a voice note to your assistant. Get back analysis and confirmation in seconds. Hands-free betting from anywhere.',
-                status: 'Coming soon',
+                desc: 'Send a voice note to your assistant. On-device transcription via SFSpeechRecognizer with Bluetooth HFP. Hands-free betting from anywhere.',
+                status: 'Live',
               },
               {
                 icon: '👓',
                 title: 'Smart Glasses',
-                desc: 'Talk to your assistant through Meta Ray-Bans with Gemini Live. The most natural way to interact with prediction markets.',
+                desc: 'Talk to your assistant through Meta Ray-Bans. On-device speech recognition with 2-second silence detection. The most natural way to bet.',
                 status: 'Live',
               },
             ].map((channel, i) => (
@@ -466,18 +472,120 @@ export default function BetWhisperLanding() {
         </div>
       </section>
 
+      {/* Group Drafts */}
+      <section id="groups" className="border-b border-[--border]">
+        <div className="max-w-[1200px] mx-auto">
+          {/* Section header */}
+          <div className="px-6 py-16 md:py-24 border-b border-[--border]">
+            <span className="text-[13px] text-[--text-secondary] block mb-4">Groups</span>
+            <h2 className="text-[clamp(1.8rem,4vw,3rem)] font-bold tracking-tight max-w-2xl">
+              Bet with friends
+            </h2>
+            <p className="text-[14px] text-[--text-secondary] mt-3 max-w-lg">
+              Create a group and choose your mode. Compete on conviction or strategy.
+            </p>
+          </div>
+
+          {/* Two-column: modes + invite mockup */}
+          <div className="grid md:grid-cols-2">
+            {/* Left: Mode cards */}
+            <div className="px-6 py-10 md:border-r border-[--border] space-y-4">
+              {/* Draft Pool */}
+              <div className="border border-emerald-500/30 bg-emerald-500/[0.02] p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-[18px] font-bold">Draft Pool</h3>
+                  <span className="text-[10px] font-semibold tracking-wider px-2 py-0.5 bg-emerald-500/10 text-emerald-500">
+                    SAME MARKET
+                  </span>
+                </div>
+                <p className="text-[14px] text-[--text-secondary] leading-relaxed">
+                  Creator picks the market. Everyone bets the same question. Pure conviction test.
+                </p>
+              </div>
+
+              {/* Leaderboard */}
+              <div className="border border-[--border-light] bg-black p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-[18px] font-bold">Leaderboard</h3>
+                  <span className="text-[10px] font-semibold tracking-wider px-2 py-0.5 bg-white/5 text-[--text-tertiary]">
+                    FREE PICK
+                  </span>
+                </div>
+                <p className="text-[14px] text-[--text-secondary] leading-relaxed">
+                  Free competition. Each member picks their own markets. Ranked by P&L.
+                </p>
+              </div>
+            </div>
+
+            {/* Right: Invite flow mockup */}
+            <div className="px-6 py-10 flex items-center">
+              <div className="w-full border border-[--border-light] bg-black">
+                <div className="flex items-center gap-2 px-5 py-3 border-b border-[--border-light]">
+                  <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
+                  <span className="text-[11px] text-[--text-secondary] tracking-wide">Group preview</span>
+                </div>
+                <div className="px-5 py-4 space-y-3 text-[13px]">
+                  <div className="flex justify-between py-2 border-b border-[--border]">
+                    <span className="text-[--text-secondary]">Group</span>
+                    <span className="text-white font-semibold">F1 Friends</span>
+                  </div>
+                  <div className="flex justify-between py-2 border-b border-[--border]">
+                    <span className="text-[--text-secondary]">Mode</span>
+                    <span className="text-emerald-400 font-semibold">Draft Pool</span>
+                  </div>
+                  <div className="flex justify-between py-2 border-b border-[--border]">
+                    <span className="text-[--text-secondary]">Market</span>
+                    <span className="text-white/80 font-semibold">&quot;Will Verstappen win Australian GP?&quot;</span>
+                  </div>
+                  <div className="flex justify-between py-2 border-b border-[--border]">
+                    <span className="text-[--text-secondary]">Members</span>
+                    <span className="text-white font-semibold">3/5</span>
+                  </div>
+                  <div className="flex justify-between py-2">
+                    <span className="text-[--text-secondary]">Invite code</span>
+                    <span className="text-white font-mono font-semibold">BW-F1-2026</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* AI Gate callout */}
+          <div className="px-6 py-8 border-t border-[--border]">
+            <div className="border border-amber-500/20 bg-amber-500/[0.02] px-6 py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="w-2 h-2 bg-amber-500 rounded-full mt-1.5 flex-shrink-0" />
+                <div>
+                  <p className="text-[14px] text-white font-semibold mb-1">Unlock &quot;Explain with AI&quot;</p>
+                  <p className="text-[13px] text-[--text-secondary]">
+                    Create a group and invite at least 1 friend to unlock AI-powered market explanations.
+                  </p>
+                </div>
+              </div>
+              <Link
+                href="/predict"
+                className="px-5 py-2.5 bg-white text-black text-[13px] font-semibold hover:bg-white/90 transition-colors duration-200 active:scale-[0.97] whitespace-nowrap flex-shrink-0"
+              >
+                Create Your First Group
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Tech Stack */}
       <section ref={stack.ref} className="border-b border-[--border]">
         <div className="max-w-[1200px] mx-auto">
           <div className="px-6 py-16 md:py-20">
             <span className="text-[13px] text-[--text-secondary] block mb-10">Built with</span>
-            <div className={`grid grid-cols-2 md:grid-cols-5 gap-px bg-[--border] transition-all duration-700 ${
+            <div className={`grid grid-cols-2 md:grid-cols-3 gap-px bg-[--border] transition-all duration-700 ${
               stack.visible ? 'opacity-100' : 'opacity-0'
             }`}>
               {[
-                { name: 'Monad', desc: 'High-performance L1', url: 'https://monad.xyz' },
-                { name: 'Polymarket', desc: 'Prediction markets', url: 'https://polymarket.com' },
+                { name: 'Polymarket CLOB', desc: 'Order execution', url: 'https://polymarket.com' },
+                { name: 'Monad', desc: 'Signal provenance', url: 'https://monad.xyz' },
                 { name: 'Gemini Live', desc: 'Multimodal AI', url: 'https://deepmind.google/technologies/gemini/' },
+                { name: 'SFSpeechRecognizer', desc: 'On-device voice', url: 'https://developer.apple.com/documentation/speech' },
                 { name: 'Agent Radar', desc: '29 whale wallets', url: '#agent-shield' },
                 { name: 'Meta Ray-Ban', desc: 'Smart glasses', url: 'https://www.ray-ban.com/usa/ray-ban-meta-smart-glasses' },
               ].map(tech => (
@@ -533,6 +641,9 @@ export default function BetWhisperLanding() {
             </span>
           </div>
           <div className="flex items-center gap-4">
+            <a href="#groups" className="text-[12px] text-[--text-tertiary] hover:text-white transition-colors">
+              Groups
+            </a>
             <span className="text-[12px] text-[--text-tertiary]">
               Monad Blitz CDMX 2026
             </span>
