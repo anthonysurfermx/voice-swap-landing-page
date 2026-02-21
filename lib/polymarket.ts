@@ -81,16 +81,25 @@ const LEAGUE_MAP: Record<string, string> = {
   'wnba': 'wnba',
   // Combat
   'ufc': 'ufc', 'mma': 'ufc',
+  // Motorsport
+  'f1': 'f1', 'formula 1': 'f1', 'formula one': 'f1', 'formula uno': 'f1',
   // Esports
   'league of legends': 'lol', 'lol': 'lol',
   'dota': 'dota2', 'dota 2': 'dota2',
   'valorant': 'val',
   'cs2': 'cs2', 'csgo': 'cs2', 'counter strike': 'cs2',
+  'mobile legends': 'mlbb', 'mlbb': 'mlbb',
+  'overwatch': 'ow',
+  'rocket league': 'rl',
   // Tennis
   'atp': 'atp', 'tennis': 'atp',
   'wta': 'wta',
   // Cricket
-  'ipl': 'ipl', 'cricket': 'ipl',
+  'ipl': 'ipl', 'cricket': 'ipl', 't20': 't20',
+  // Rugby
+  'rugby': 'ruprem',
+  // Olympics
+  'olympics': 'mwoh', 'olimpiadas': 'mwoh',
 }
 
 // Sports team/club -> { league, searchTerms } mapping
@@ -207,6 +216,37 @@ async function fetchEvents(params: URLSearchParams): Promise<EventInfo[]> {
   return data.map(parseEvent)
 }
 
+// Query expansion: short/ambiguous queries -> better search terms
+// This helps when users type abbreviations or colloquial terms
+const QUERY_EXPAND: Record<string, string[]> = {
+  'btc': ['bitcoin'], 'eth': ['ethereum'], 'sol': ['solana'],
+  'trump': ['trump'], 'biden': ['biden'], 'elon': ['elon', 'musk', 'tesla'],
+  'ai': ['artificial intelligence', 'openai', 'chatgpt'],
+  'war': ['war', 'military', 'strike', 'invasion'],
+  'election': ['election', 'president', 'vote'],
+  'eleccion': ['election', 'president'], 'elecciones': ['election'],
+  'mexico': ['mexico', 'mexican'], 'usa': ['united states', 'america'],
+}
+
+// Score how well an event title matches a query (0 = no match)
+function scoreMatch(title: string, query: string): number {
+  const t = title.toLowerCase()
+  const q = query.toLowerCase().trim()
+  const words = q.split(/\s+/).filter(w => w.length > 1)
+
+  // Exact query in title = best match
+  if (t.includes(q)) return 100
+
+  // All words present
+  const allPresent = words.every(w => t.includes(w))
+  if (allPresent) return 80
+
+  // Count matching words
+  const matchCount = words.filter(w => t.includes(w)).length
+  if (matchCount === 0) return 0
+  return (matchCount / words.length) * 60
+}
+
 export async function searchMarkets(query: string, limit = 10): Promise<EventInfo[]> {
   if (!query) {
     // Trending: no query
@@ -216,7 +256,7 @@ export async function searchMarkets(query: string, limit = 10): Promise<EventInf
     }))
   }
 
-  // 1. Check if query maps to a sports league ("liga mx", "nba")
+  // 1. Check if query maps to a sports league ("liga mx", "nba", "f1")
   const leagueSlug = detectLeague(query)
   if (leagueSlug) {
     return fetchEvents(new URLSearchParams({
@@ -226,7 +266,6 @@ export async function searchMarkets(query: string, limit = 10): Promise<EventInf
   }
 
   // 2. Check if query matches a team name ("Pumas", "Chivas", "Lakers")
-  //    Fetch from that team's league and filter locally by all known name variants
   const teamMatch = detectTeamLeague(query)
   if (teamMatch) {
     const allEvents = await fetchEvents(new URLSearchParams({
@@ -238,11 +277,41 @@ export async function searchMarkets(query: string, limit = 10): Promise<EventInf
       return teamMatch.searchTerms.some(term => titleLower.includes(term))
     })
     if (filtered.length > 0) return filtered.slice(0, limit)
-    // If no match by team name, return all league events
     return allEvents.slice(0, limit)
   }
 
-  // 3. General title search
+  // 3. Smart general search: fetch large pool, score & filter locally
+  //    (Gamma API title search is unreliable, so we filter ourselves)
+  const qNorm = query.toLowerCase().trim()
+  const expanded = QUERY_EXPAND[qNorm]
+  const searchTerms = expanded ? [query, ...expanded] : [query]
+
+  // Fetch a broad pool of active events
+  const pool = await fetchEvents(new URLSearchParams({
+    _limit: '200', active: 'true', closed: 'false',
+    order: 'volume24hr', ascending: 'false',
+  }))
+
+  // Score each event against all search terms, take best score
+  const scored = pool.map(event => {
+    const best = Math.max(...searchTerms.map(term => scoreMatch(event.title, term)))
+    // Also check market questions inside the event
+    const marketScore = Math.max(0, ...event.markets.map(m =>
+      Math.max(...searchTerms.map(term => scoreMatch(m.question, term)))
+    ))
+    return { event, score: Math.max(best, marketScore) }
+  })
+
+  const matched = scored
+    .filter(s => s.score > 0)
+    .sort((a, b) => b.score - a.score || b.event.volume - a.event.volume)
+    .map(s => s.event)
+    .slice(0, limit)
+
+  // If local filtering found results, return them
+  if (matched.length > 0) return matched
+
+  // 4. Last resort: try Gamma title search anyway (might work for longer queries)
   return fetchEvents(new URLSearchParams({
     _limit: String(limit), active: 'true', closed: 'false',
     title: query, order: 'volume24hr', ascending: 'false',
