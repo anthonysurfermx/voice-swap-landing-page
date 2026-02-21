@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Mock mode (panic button for demo)
-  if (process.env.MOCK_POLYGON_EXECUTION === 'true') {
+  if (process.env.MOCK_POLYGON_EXECUTION?.toLowerCase() === 'true') {
     await new Promise(r => setTimeout(r, 1500))
     const mockHash = `0x${Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`
     dailySpent += amount
@@ -111,7 +111,7 @@ export async function GET() {
 
   return NextResponse.json({
     ready: !!process.env.POLYMARKET_PRIVATE_KEY,
-    mock: process.env.MOCK_POLYGON_EXECUTION === 'true',
+    mock: process.env.MOCK_POLYGON_EXECUTION?.toLowerCase() === 'true',
     balance: balance,
     dailySpent,
     dailyLimit: DAILY_LIMIT,
