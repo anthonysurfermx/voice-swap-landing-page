@@ -2150,10 +2150,15 @@ export default function PredictChat() {
   const [inlineJoinResult, setInlineJoinResult] = useState<'success' | 'error' | null>(null)
   useEffect(() => {
     if (!address) return
-    fetch(`/api/groups/check?wallet=${address}`)
-      .then(r => r.json())
-      .then(d => setAiGateEligible(d.eligible === true))
-      .catch(() => setAiGateEligible(false))
+    const check = () =>
+      fetch(`/api/groups/check?wallet=${address}`)
+        .then(r => r.json())
+        .then(d => setAiGateEligible(d.eligible === true))
+        .catch(() => setAiGateEligible(false))
+    check()
+    // Poll every 5s so User 1 detects when a friend joins their group
+    const interval = setInterval(check, 5000)
+    return () => clearInterval(interval)
   }, [address])
 
   // Detect AI unlock transition (false -> true) and show toast
@@ -2918,37 +2923,47 @@ export default function PredictChat() {
         </div>
       )}
 
-      {/* Inline Join Banner (only for QR scan arrivals who haven't joined yet) */}
-      {isConnected && !aiGateEligible && autoJoinCode && (
+      {/* Inline Join Banner (for users who arrive via QR scan link) */}
+      {autoJoinCode && inlineJoinResult !== 'success' && (
         <div className="border-b border-[#836EF9]/20 bg-[#836EF9]/[0.04] flex-shrink-0">
           <div className="max-w-2xl mx-auto px-4 py-2.5 flex items-center gap-3">
             <Lock className="w-3.5 h-3.5 text-[#836EF9] flex-shrink-0" />
-            <span className="text-[10px] font-mono text-[#836EF9] flex-shrink-0">
-              {lang === 'es' ? 'INGRESA CODIGO' : 'ENTER CODE'}
-            </span>
-            <input
-              type="text"
-              value={inlineJoinCode}
-              onChange={e => { setInlineJoinCode(e.target.value.toUpperCase()); setInlineJoinResult(null) }}
-              onKeyDown={e => { if (e.key === 'Enter') handleInlineJoin() }}
-              placeholder="BW-ABC123"
-              className="flex-1 bg-transparent border border-white/[0.08] px-3 py-1.5 text-[12px] font-mono text-white tracking-[1px] placeholder:text-white/15 outline-none focus:border-[#836EF9]/40 transition-colors"
-              maxLength={10}
-            />
-            <button
-              onClick={handleInlineJoin}
-              disabled={!inlineJoinCode.trim() || inlineJoinLoading}
-              className={`px-3 py-1.5 text-[11px] font-bold transition-colors ${
-                inlineJoinCode.trim() && !inlineJoinLoading
-                  ? 'bg-[#836EF9] text-white hover:bg-[#836EF9]/80'
-                  : 'bg-white/5 text-white/20 cursor-not-allowed'
-              }`}
-            >
-              {inlineJoinLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'JOIN'}
-            </button>
-            {inlineJoinResult === 'error' && (
-              <AlertTriangle className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
+            {!isConnected ? (
+              <span className="text-[11px] font-mono text-[#836EF9]">
+                {lang === 'es' ? 'CONECTA TU WALLET PARA UNIRTE AL GRUPO' : 'CONNECT WALLET TO JOIN GROUP'}
+              </span>
+            ) : (
+              <>
+                <span className="text-[10px] font-mono text-[#836EF9] flex-shrink-0">
+                  {lang === 'es' ? 'UNIRSE AL GRUPO' : 'JOIN GROUP'}
+                </span>
+                <span className="text-[13px] font-bold font-mono text-white tracking-[2px]">{inlineJoinCode}</span>
+                <button
+                  onClick={handleInlineJoin}
+                  disabled={!inlineJoinCode.trim() || inlineJoinLoading}
+                  className={`px-3 py-1.5 text-[11px] font-bold transition-colors ${
+                    inlineJoinCode.trim() && !inlineJoinLoading
+                      ? 'bg-[#836EF9] text-white hover:bg-[#836EF9]/80'
+                      : 'bg-white/5 text-white/20 cursor-not-allowed'
+                  }`}
+                >
+                  {inlineJoinLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'JOIN'}
+                </button>
+                {inlineJoinResult === 'error' && (
+                  <AlertTriangle className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
+                )}
+              </>
             )}
+          </div>
+        </div>
+      )}
+      {autoJoinCode && inlineJoinResult === 'success' && (
+        <div className="border-b border-emerald-500/20 bg-emerald-500/[0.04] flex-shrink-0">
+          <div className="max-w-2xl mx-auto px-4 py-2.5 flex items-center gap-2">
+            <Check className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+            <span className="text-[11px] font-mono text-emerald-500">
+              {lang === 'es' ? 'TE UNISTE AL GRUPO' : 'JOINED GROUP'}
+            </span>
           </div>
         </div>
       )}
