@@ -12,7 +12,11 @@ import {
   ArrowUp, Globe, Star, TrendingUp, Brain, Landmark,
   Swords, Gamepad2, CircleDot, Bitcoin, Dribbble,
   Trophy, Zap,
+  Users, Link2, Copy, Check, Plus, ArrowLeft, Crown, Lock, Unlock,
 } from 'lucide-react'
+import {
+  Drawer, DrawerContent, DrawerTrigger, DrawerTitle,
+} from '@/components/ui/drawer'
 import type { DeepAnalysisResult } from '../api/market/deep-analyze/route'
 import type { StrategyType } from '@/lib/polymarket-detector'
 import { calculateWinProbability } from '@/lib/probability'
@@ -75,6 +79,31 @@ interface ChatMessage {
   text: string
   attachment?: ChatAttachment
   timestamp: number
+}
+
+// ─── Groups Types ───
+
+type GroupsView = 'list' | 'create' | 'join' | 'detail'
+
+interface GroupInfo {
+  id: string
+  name: string
+  mode: 'draft_pool' | 'leaderboard'
+  invite_code: string
+  creator_wallet: string
+  member_count: number
+  market_slug?: string
+  created_at: string
+}
+
+interface GroupDetail extends GroupInfo {
+  members: { wallet_address: string; joined_at: string }[]
+}
+
+interface LeaderboardEntry {
+  wallet_address: string
+  total_pnl: number
+  bet_count: number
 }
 
 // ─── i18n ───
@@ -1074,6 +1103,437 @@ function PortfolioAttachment({ data }: { data: PortfolioData }) {
   )
 }
 
+// ─── Groups Drawer ───
+
+function GroupsDrawer({ address, isConnected, lang, aiGateEligible, onEligibilityChange }: {
+  address: string | null
+  isConnected: boolean
+  lang: Lang
+  aiGateEligible: boolean
+  onEligibilityChange: (eligible: boolean) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [view, setView] = useState<GroupsView>('list')
+  const [groups, setGroups] = useState<GroupInfo[]>([])
+  const [loading, setLoading] = useState(false)
+  const [selectedGroup, setSelectedGroup] = useState<GroupDetail | null>(null)
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
+  const [copied, setCopied] = useState(false)
+
+  const [createName, setCreateName] = useState('')
+  const [createMode, setCreateMode] = useState<'draft_pool' | 'leaderboard'>('leaderboard')
+
+  const [joinCode, setJoinCode] = useState('')
+  const [joinError, setJoinError] = useState('')
+  const [joinSuccess, setJoinSuccess] = useState<{ group_name: string; member_count: number } | null>(null)
+
+  const [newGroupCode, setNewGroupCode] = useState('')
+
+  const fetchGroups = useCallback(async () => {
+    if (!address) return
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/groups?wallet=${address}`)
+      if (res.ok) setGroups(await res.json())
+    } catch {} finally { setLoading(false) }
+  }, [address])
+
+  const fetchGroupDetail = useCallback(async (code: string) => {
+    setLoading(true)
+    try {
+      const [detailRes, lbRes] = await Promise.all([
+        fetch(`/api/groups/${code}`),
+        fetch(`/api/groups/${code}/leaderboard`),
+      ])
+      if (detailRes.ok) setSelectedGroup(await detailRes.json())
+      if (lbRes.ok) {
+        const lbData = await lbRes.json()
+        setLeaderboard(lbData.leaderboard || [])
+      }
+    } catch {} finally { setLoading(false) }
+  }, [])
+
+  const handleCreate = useCallback(async () => {
+    if (!createName.trim() || !address) return
+    setLoading(true)
+    try {
+      const res = await fetch('/api/groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: createName.trim(), mode: createMode, creator_wallet: address }),
+      })
+      if (res.ok) {
+        const group = await res.json()
+        setNewGroupCode(group.invite_code)
+        setCreateName('')
+        setView('list')
+        fetchGroups()
+      }
+    } catch {} finally { setLoading(false) }
+  }, [createName, createMode, address, fetchGroups])
+
+  const handleJoin = useCallback(async () => {
+    if (!joinCode.trim() || !address) return
+    setLoading(true)
+    setJoinError('')
+    setJoinSuccess(null)
+    try {
+      const res = await fetch(`/api/groups/${joinCode.trim()}/join`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wallet_address: address }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setJoinSuccess({ group_name: data.group_name, member_count: data.member_count })
+        setJoinCode('')
+        fetchGroups()
+        const checkRes = await fetch(`/api/groups/check?wallet=${address}`)
+        if (checkRes.ok) {
+          const checkData = await checkRes.json()
+          onEligibilityChange(checkData.eligible === true)
+        }
+      } else {
+        setJoinError(data.error || 'Failed to join')
+      }
+    } catch { setJoinError('Network error') } finally { setLoading(false) }
+  }, [joinCode, address, fetchGroups, onEligibilityChange])
+
+  const copyCode = useCallback((code: string) => {
+    navigator.clipboard.writeText(code)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }, [])
+
+  useEffect(() => {
+    if (open && isConnected) {
+      fetchGroups()
+      setView('list')
+      setNewGroupCode('')
+      setJoinSuccess(null)
+      setJoinError('')
+    }
+  }, [open, isConnected, fetchGroups])
+
+  return (
+    <Drawer open={open} onOpenChange={setOpen}>
+      <DrawerTrigger asChild>
+        <button className="p-2 border border-[--border-light] hover:border-white/30 transition-colors relative">
+          <Users className="w-3.5 h-3.5 text-white/40" />
+          {groups.length > 0 && (
+            <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-[#836EF9] text-[7px] font-bold flex items-center justify-center text-white">
+              {groups.length}
+            </span>
+          )}
+        </button>
+      </DrawerTrigger>
+
+      <DrawerContent className="bg-black border-t border-white/10 rounded-none max-h-[85vh]">
+        <DrawerTitle className="sr-only">Groups</DrawerTitle>
+        <div className="w-12 h-1 bg-white/20 mx-auto mt-3 mb-2" />
+
+        <div className="overflow-y-auto flex-1 px-4 pb-6">
+          {!isConnected ? (
+            <div className="py-8 text-center">
+              <div className="w-10 h-10 border border-white/10 mx-auto mb-4 flex items-center justify-center">
+                <Users className="w-5 h-5 text-white/20" />
+              </div>
+              <p className="text-[13px] text-white/40 mb-1">Connect your wallet to use Groups</p>
+              <p className="text-[10px] font-mono text-white/20">Compete with friends. Unlock AI features.</p>
+            </div>
+          ) : view === 'list' ? (
+            <>
+              {/* AI Gate Status */}
+              <div className={`px-3 py-2.5 border mb-4 flex items-center gap-2 ${
+                aiGateEligible
+                  ? 'border-emerald-500/20 bg-emerald-500/[0.03]'
+                  : 'border-[#836EF9]/20 bg-[#836EF9]/[0.03]'
+              }`}>
+                {aiGateEligible ? (
+                  <>
+                    <Unlock className="w-3.5 h-3.5 text-emerald-500" />
+                    <span className="text-[11px] font-mono text-emerald-500">AI UNLOCKED</span>
+                  </>
+                ) : (
+                  <>
+                    <Lock className="w-3.5 h-3.5 text-[#836EF9]" />
+                    <span className="text-[11px] font-mono text-[#836EF9]">INVITE 1 FRIEND TO UNLOCK AI</span>
+                  </>
+                )}
+              </div>
+
+              {/* New group invite code */}
+              {newGroupCode && (
+                <div className="border border-[#836EF9]/30 bg-[#836EF9]/[0.05] px-4 py-4 mb-4">
+                  <span className="text-[9px] font-bold font-mono text-[#836EF9] tracking-[1.5px]">INVITE CODE</span>
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className="text-[24px] font-bold font-mono text-white tracking-[4px]">{newGroupCode}</span>
+                    <button onClick={() => copyCode(newGroupCode)}
+                      className="p-2 border border-white/10 hover:border-white/30 transition-colors">
+                      {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4 text-white/40" />}
+                    </button>
+                  </div>
+                  <p className="text-[10px] font-mono text-white/30 mt-2">Share this code with friends to start competing</p>
+                </div>
+              )}
+
+              {/* Groups list */}
+              {loading ? (
+                <div className="flex items-center gap-2 py-8 justify-center">
+                  <Loader2 className="w-4 h-4 animate-spin text-white/30" />
+                  <span className="text-[12px] font-mono text-white/30">Loading groups...</span>
+                </div>
+              ) : groups.length === 0 ? (
+                <div className="py-6 text-center">
+                  <div className="w-10 h-10 border border-white/10 mx-auto mb-3 flex items-center justify-center">
+                    <Users className="w-5 h-5 text-white/20" />
+                  </div>
+                  <p className="text-[13px] text-white/40 mb-1">No groups yet</p>
+                  <p className="text-[10px] font-mono text-white/20">Create a group or join one with an invite code</p>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  {groups.map(g => (
+                    <button key={g.id}
+                      onClick={() => { setView('detail'); fetchGroupDetail(g.invite_code) }}
+                      className="w-full text-left flex items-center justify-between px-3 py-2.5 border border-white/[0.08] bg-white/[0.04] hover:bg-white/[0.08] transition-colors active:scale-[0.99]">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[13px] font-medium text-white">{g.name}</div>
+                        <div className="flex items-center gap-3 mt-0.5">
+                          <span className="text-[10px] font-mono text-white/30 flex items-center gap-1">
+                            <Users className="w-3 h-3" />{g.member_count}
+                          </span>
+                          <span className="text-[9px] font-mono text-[#836EF9]/60 border border-[#836EF9]/20 px-1.5 py-0.5">
+                            {g.mode === 'draft_pool' ? 'DRAFT POOL' : 'LEADERBOARD'}
+                          </span>
+                        </div>
+                      </div>
+                      <ChevronRight className="w-3.5 h-3.5 text-white/20 flex-shrink-0" />
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* CTAs */}
+              <div className="flex items-center gap-2 mt-4">
+                <button onClick={() => setView('create')}
+                  className="flex-1 py-2.5 text-[12px] font-semibold bg-[#836EF9] text-white hover:bg-[#836EF9]/90 transition-colors active:scale-[0.97] flex items-center justify-center gap-1.5">
+                  <Plus className="w-3.5 h-3.5" /> CREATE
+                </button>
+                <button onClick={() => setView('join')}
+                  className="flex-1 py-2.5 text-[12px] font-semibold border border-white/20 text-white hover:bg-white/[0.06] transition-colors active:scale-[0.97] flex items-center justify-center gap-1.5">
+                  <Link2 className="w-3.5 h-3.5" /> JOIN
+                </button>
+              </div>
+            </>
+          ) : view === 'create' ? (
+            <>
+              <div className="flex items-center gap-2 mb-4">
+                <button onClick={() => setView('list')} className="p-1 hover:bg-white/[0.06] transition-colors">
+                  <ArrowLeft className="w-4 h-4 text-white/40" />
+                </button>
+                <span className="text-[9px] font-bold font-mono text-white/30 tracking-[1.5px]">CREATE GROUP</span>
+              </div>
+
+              <div className="mb-4">
+                <label className="text-[9px] font-bold font-mono text-white/30 tracking-[1px] mb-1.5 block">NAME</label>
+                <input type="text" value={createName} onChange={e => setCreateName(e.target.value)}
+                  placeholder="e.g. Crypto Degens"
+                  className="w-full bg-transparent border border-white/[0.08] px-4 py-2.5 text-[14px] text-white placeholder:text-white/20 outline-none focus:border-white/20 transition-colors"
+                  maxLength={30} />
+              </div>
+
+              <div className="mb-6">
+                <label className="text-[9px] font-bold font-mono text-white/30 tracking-[1px] mb-1.5 block">MODE</label>
+                <div className="flex items-center gap-2">
+                  {(['leaderboard', 'draft_pool'] as const).map(mode => (
+                    <button key={mode} onClick={() => setCreateMode(mode)}
+                      className={`flex-1 py-2 text-[11px] font-semibold font-mono border transition-colors active:scale-[0.97] ${
+                        createMode === mode
+                          ? 'border-[#836EF9]/40 text-[#836EF9] bg-[#836EF9]/10'
+                          : 'border-white/10 text-white/30 hover:border-white/20'
+                      }`}>
+                      {mode === 'leaderboard' ? 'LEADERBOARD' : 'DRAFT POOL'}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] font-mono text-white/20 mt-1.5">
+                  {createMode === 'leaderboard' ? 'Free competition. Each member picks their own markets. Ranked by P&L.' : 'Same market for everyone. Pure conviction test.'}
+                </p>
+              </div>
+
+              <button onClick={handleCreate} disabled={!createName.trim() || loading}
+                className={`w-full py-2.5 text-[13px] font-semibold transition-colors active:scale-[0.97] ${
+                  createName.trim() && !loading
+                    ? 'bg-[#836EF9] text-white hover:bg-[#836EF9]/90'
+                    : 'bg-white/10 text-white/20 cursor-not-allowed'
+                }`}>
+                {loading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'CREATE GROUP'}
+              </button>
+            </>
+          ) : view === 'join' ? (
+            <>
+              <div className="flex items-center gap-2 mb-4">
+                <button onClick={() => { setView('list'); setJoinError(''); setJoinSuccess(null) }}
+                  className="p-1 hover:bg-white/[0.06] transition-colors">
+                  <ArrowLeft className="w-4 h-4 text-white/40" />
+                </button>
+                <span className="text-[9px] font-bold font-mono text-white/30 tracking-[1.5px]">JOIN GROUP</span>
+              </div>
+
+              {joinSuccess ? (
+                <div className="border border-emerald-500/20 bg-emerald-500/[0.05] px-4 py-4 text-center">
+                  <CheckCircle className="w-6 h-6 text-emerald-500 mx-auto mb-2" />
+                  <p className="text-[13px] font-semibold text-white mb-1">Joined {joinSuccess.group_name}</p>
+                  <p className="text-[10px] font-mono text-white/30">{joinSuccess.member_count} members</p>
+                  <button onClick={() => { setView('list'); setJoinSuccess(null) }}
+                    className="mt-3 px-4 py-2 text-[12px] font-semibold border border-white/20 text-white hover:bg-white/[0.06] transition-colors">
+                    VIEW GROUPS
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="mb-4">
+                    <label className="text-[9px] font-bold font-mono text-white/30 tracking-[1px] mb-1.5 block">INVITE CODE</label>
+                    <input type="text" value={joinCode} onChange={e => setJoinCode(e.target.value.toUpperCase())}
+                      placeholder="e.g. BW-ABC123"
+                      className="w-full bg-transparent border border-white/[0.08] px-4 py-2.5 text-[14px] font-mono text-white tracking-[2px] placeholder:text-white/20 placeholder:tracking-normal outline-none focus:border-white/20 transition-colors"
+                      maxLength={10} />
+                  </div>
+                  {joinError && (
+                    <div className="flex items-center gap-2 mb-3 px-1">
+                      <AlertTriangle className="w-3.5 h-3.5 text-red-400" />
+                      <span className="text-[11px] text-red-400/80">{joinError}</span>
+                    </div>
+                  )}
+                  <button onClick={handleJoin} disabled={!joinCode.trim() || loading}
+                    className={`w-full py-2.5 text-[13px] font-semibold transition-colors active:scale-[0.97] ${
+                      joinCode.trim() && !loading
+                        ? 'bg-white text-black hover:bg-white/90'
+                        : 'bg-white/10 text-white/20 cursor-not-allowed'
+                    }`}>
+                    {loading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'JOIN'}
+                  </button>
+                </>
+              )}
+            </>
+          ) : view === 'detail' ? (
+            <>
+              <div className="flex items-center gap-2 mb-4">
+                <button onClick={() => { setView('list'); setSelectedGroup(null) }}
+                  className="p-1 hover:bg-white/[0.06] transition-colors">
+                  <ArrowLeft className="w-4 h-4 text-white/40" />
+                </button>
+                <span className="text-[9px] font-bold font-mono text-white/30 tracking-[1.5px]">
+                  {selectedGroup?.name.toUpperCase() || 'GROUP'}
+                </span>
+              </div>
+
+              {loading || !selectedGroup ? (
+                <div className="flex items-center gap-2 py-8 justify-center">
+                  <Loader2 className="w-4 h-4 animate-spin text-white/30" />
+                </div>
+              ) : (
+                <>
+                  {/* Invite Code */}
+                  <div className="border border-white/[0.08] bg-white/[0.04] px-3 py-2.5 mb-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-[9px] font-bold font-mono text-white/30 tracking-[1px]">INVITE CODE</span>
+                        <div className="text-[18px] font-bold font-mono text-white tracking-[3px] mt-0.5">
+                          {selectedGroup.invite_code}
+                        </div>
+                      </div>
+                      <button onClick={() => copyCode(selectedGroup.invite_code)}
+                        className="p-2 border border-white/10 hover:border-white/30 transition-colors">
+                        {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4 text-white/40" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* AI Gate status */}
+                  <div className={`px-3 py-2 border mb-3 flex items-center gap-2 ${
+                    Number(selectedGroup.member_count) >= 2
+                      ? 'border-emerald-500/20 bg-emerald-500/[0.03]'
+                      : 'border-amber-400/20 bg-amber-400/[0.03]'
+                  }`}>
+                    {Number(selectedGroup.member_count) >= 2 ? (
+                      <>
+                        <Unlock className="w-3 h-3 text-emerald-500" />
+                        <span className="text-[10px] font-mono text-emerald-500">AI UNLOCKED</span>
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="w-3 h-3 text-amber-400" />
+                        <span className="text-[10px] font-mono text-amber-400">
+                          {2 - Number(selectedGroup.member_count)} more friend{2 - Number(selectedGroup.member_count) !== 1 ? 's' : ''} needed
+                        </span>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Members */}
+                  <div className="border border-white/[0.08] bg-white/[0.04] mb-3">
+                    <div className="px-3 py-2 border-b border-white/[0.06]">
+                      <span className="text-[9px] font-bold font-mono text-white/30 tracking-[1.5px]">
+                        MEMBERS ({selectedGroup.member_count})
+                      </span>
+                    </div>
+                    {selectedGroup.members.map((m, i) => (
+                      <div key={m.wallet_address}
+                        className={`px-3 py-2 flex items-center gap-2 ${
+                          i < selectedGroup.members.length - 1 ? 'border-b border-white/[0.04]' : ''
+                        }`}>
+                        {i === 0 && <Crown className="w-3 h-3 text-amber-400" />}
+                        <span className="text-[11px] font-mono text-white/60">
+                          {m.wallet_address.slice(0, 6)}...{m.wallet_address.slice(-4)}
+                        </span>
+                        {m.wallet_address.toLowerCase() === address?.toLowerCase() && (
+                          <span className="text-[8px] font-mono text-[#836EF9] border border-[#836EF9]/20 px-1 py-0.5">YOU</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Leaderboard */}
+                  {leaderboard.length > 0 && (
+                    <div className="border border-white/[0.08] bg-white/[0.04]">
+                      <div className="px-3 py-2 border-b border-white/[0.06]">
+                        <span className="text-[9px] font-bold font-mono text-white/30 tracking-[1.5px]">LEADERBOARD</span>
+                      </div>
+                      {leaderboard.map((entry, i) => (
+                        <div key={entry.wallet_address}
+                          className={`px-3 py-2 flex items-center justify-between ${
+                            i < leaderboard.length - 1 ? 'border-b border-white/[0.04]' : ''
+                          }`}>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-bold font-mono text-white/30 w-4">{i + 1}</span>
+                            <span className="text-[11px] font-mono text-white/60">
+                              {entry.wallet_address.slice(0, 6)}...{entry.wallet_address.slice(-4)}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-[10px] font-mono text-white/30">{entry.bet_count} bets</span>
+                            <span className={`text-[11px] font-bold font-mono ${
+                              Number(entry.total_pnl) >= 0 ? 'text-emerald-500' : 'text-red-400'
+                            }`}>
+                              {Number(entry.total_pnl) >= 0 ? '+' : ''}${Math.abs(Number(entry.total_pnl)).toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </>
+          ) : null}
+        </div>
+      </DrawerContent>
+    </Drawer>
+  )
+}
+
 // ─── Chat Bubble ───
 
 function ChatBubble({ message, assistantName }: { message: ChatMessage; assistantName: string }) {
@@ -1513,12 +1973,19 @@ export default function PredictChat() {
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             {isConnected ? (
               <>
                 <span className="text-[11px] text-white/40 font-mono hidden sm:block">
                   {address?.slice(0, 6)}...{address?.slice(-4)}
                 </span>
+                <GroupsDrawer
+                  address={address}
+                  isConnected={isConnected}
+                  lang={lang}
+                  aiGateEligible={aiGateEligible}
+                  onEligibilityChange={setAiGateEligible}
+                />
                 <button onClick={disconnect} className="p-2 border border-[--border-light] hover:border-white/30 transition-colors">
                   <LogOut className="w-3.5 h-3.5 text-white/40" />
                 </button>
