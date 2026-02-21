@@ -2128,7 +2128,7 @@ export default function PredictChat() {
     setOnboarded(true)
   }
 
-  // Auto-join from QR scan URL param
+  // Auto-join from QR scan URL param (persists in sessionStorage through onboarding)
   const [autoJoinCode, setAutoJoinCode] = useState<string>('')
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -2136,8 +2136,15 @@ export default function PredictChat() {
     if (join) {
       setAutoJoinCode(join)
       setInlineJoinCode(join.toUpperCase())
-      // Clean URL without reload
+      sessionStorage.setItem('bw_join_code', join.toUpperCase())
       window.history.replaceState({}, '', window.location.pathname)
+    } else {
+      // Recover from sessionStorage (survives onboarding + page transitions)
+      const saved = sessionStorage.getItem('bw_join_code')
+      if (saved) {
+        setAutoJoinCode(saved)
+        setInlineJoinCode(saved)
+      }
     }
   }, [])
 
@@ -2184,6 +2191,7 @@ export default function PredictChat() {
       if (res.ok) {
         setInlineJoinResult('success')
         setInlineJoinCode('')
+        sessionStorage.removeItem('bw_join_code')
         // Re-check AI Gate eligibility
         const checkRes = await fetch(`/api/groups/check?wallet=${address}`)
         if (checkRes.ok) {
