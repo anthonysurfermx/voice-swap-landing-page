@@ -167,6 +167,7 @@ export async function POST(request: NextRequest) {
       tokenId: tokenId || undefined,
       tickSize: tickSize || undefined,
       negRisk: negRisk !== undefined ? negRisk : undefined,
+      marketSlug: marketSlug || undefined,
     })
 
     dailySpent += amount

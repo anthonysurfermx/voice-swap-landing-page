@@ -55,24 +55,33 @@ export async function getClient(): Promise<ClobClient> {
   return clientInstance
 }
 
-// Fetch clobTokenIds from Gamma API for a conditionId
-export async function getTokenIds(conditionId: string): Promise<ClobTokenIds | null> {
+// Fetch clobTokenIds from Gamma API (try slug first, fall back to conditionId)
+export async function getTokenIds(conditionId: string, slug?: string): Promise<ClobTokenIds | null> {
   try {
-    const res = await fetch(`${GAMMA_API}/markets?condition_id=${conditionId}&limit=1`)
-    if (!res.ok) return null
-    const data = await res.json()
-    if (!Array.isArray(data) || data.length === 0) return null
+    // Try slug first (more reliable, condition_id search can return stale results)
+    const queries = slug
+      ? [`${GAMMA_API}/markets?slug=${slug}&limit=1`, `${GAMMA_API}/markets?condition_id=${conditionId}&limit=1`]
+      : [`${GAMMA_API}/markets?condition_id=${conditionId}&limit=1`]
 
-    const market = data[0]
-    const tokenIds = JSON.parse(market.clobTokenIds || '[]')
-    if (tokenIds.length < 2) return null
+    for (const url of queries) {
+      const res = await fetch(url)
+      if (!res.ok) continue
+      const data = await res.json()
+      if (!Array.isArray(data) || data.length === 0) continue
 
-    return {
-      yes: tokenIds[0],
-      no: tokenIds[1],
-      tickSize: market.orderPriceMinTickSize?.toString() || '0.01',
-      negRisk: market.negRisk === true,
+      const market = data[0]
+      const tokenIds = JSON.parse(market.clobTokenIds || '[]')
+      if (tokenIds.length < 2) continue
+
+      console.log(`[CLOB] Resolved market via ${url.includes('slug=') ? 'slug' : 'conditionId'}: ${market.question}`)
+      return {
+        yes: tokenIds[0],
+        no: tokenIds[1],
+        tickSize: market.orderPriceMinTickSize?.toString() || '0.01',
+        negRisk: market.negRisk === true,
+      }
     }
+    return null
   } catch (e) {
     console.error('[CLOB] Failed to fetch token IDs:', e)
     return null
@@ -116,6 +125,7 @@ export async function executeClobBet(params: {
   tokenId?: string       // Direct token ID (skips Gamma lookup)
   tickSize?: string      // Tick size when using direct tokenId
   negRisk?: boolean      // Neg risk flag when using direct tokenId
+  marketSlug?: string    // Slug for reliable Gamma lookup
 }): Promise<ClobBetResult> {
   const { conditionId, outcomeIndex, amountUSD } = params
 
@@ -137,8 +147,8 @@ export async function executeClobBet(params: {
     tickSize = params.tickSize || '0.01'
     negRisk = params.negRisk ?? false
   } else {
-    const tokens = await getTokenIds(conditionId)
-    if (!tokens) throw new Error('Market not found or missing token IDs')
+    const tokens = await getTokenIds(conditionId, params.marketSlug)
+    if (!tokens) throw new Error('market not found')
     tokenID = outcomeIndex === 0 ? tokens.yes : tokens.no
     tickSize = tokens.tickSize
     negRisk = tokens.negRisk

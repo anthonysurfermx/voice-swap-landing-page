@@ -179,6 +179,20 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     onboardLang: "What language?",
     onboardLangSub: "{name} will talk to you in your language.",
     startWhispering: "START WHISPERING",
+    stats: "STATS",
+    pinSetupTitle: "SET UP YOUR 4-DIGIT PIN",
+    pinConfirmTitle: "CONFIRM YOUR PIN",
+    pinCreated: "PIN created",
+    pinVerifyTitle: "ENTER YOUR PIN",
+    pinVerified: "Verified",
+    pinWrong: "Wrong PIN",
+    pinLocked: "Too many attempts",
+    attemptsLeft: "{n} attempts left",
+    yourPositions: "YOUR POSITIONS",
+    noPositions: "No open positions",
+    sell: "SELL",
+    selling: "Selling...",
+    contextStats: "CONTEXT / STATS",
     failedSearch: "Failed to search markets.",
     failedAnalysis: "Failed to analyze market.",
     failedBet: "Failed to place bet. Please try again.",
@@ -232,6 +246,20 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     onboardLang: "En que idioma?",
     onboardLangSub: "{name} te hablara en tu idioma.",
     startWhispering: "EMPEZAR",
+    stats: "ESTADISTICAS",
+    pinSetupTitle: "CONFIGURA TU PIN DE 4 DIGITOS",
+    pinConfirmTitle: "CONFIRMA TU PIN",
+    pinCreated: "PIN creado",
+    pinVerifyTitle: "INGRESA TU PIN",
+    pinVerified: "Verificado",
+    pinWrong: "PIN incorrecto",
+    pinLocked: "Demasiados intentos",
+    attemptsLeft: "{n} intentos restantes",
+    yourPositions: "TUS POSICIONES",
+    noPositions: "Sin posiciones abiertas",
+    sell: "VENDER",
+    selling: "Vendiendo...",
+    contextStats: "CONTEXTO / ESTADISTICAS",
     failedSearch: "Error al buscar mercados.",
     failedAnalysis: "Error al analizar el mercado.",
     failedBet: "Error al apostar. Intenta de nuevo.",
@@ -285,6 +313,20 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     onboardLang: "Qual idioma?",
     onboardLangSub: "{name} vai falar com voce no seu idioma.",
     startWhispering: "COMECAR",
+    stats: "ESTATISTICAS",
+    pinSetupTitle: "CONFIGURE SEU PIN DE 4 DIGITOS",
+    pinConfirmTitle: "CONFIRME SEU PIN",
+    pinCreated: "PIN criado",
+    pinVerifyTitle: "DIGITE SEU PIN",
+    pinVerified: "Verificado",
+    pinWrong: "PIN incorreto",
+    pinLocked: "Muitas tentativas",
+    attemptsLeft: "{n} tentativas restantes",
+    yourPositions: "SUAS POSICOES",
+    noPositions: "Sem posicoes abertas",
+    sell: "VENDER",
+    selling: "Vendendo...",
+    contextStats: "CONTEXTO / ESTATISTICAS",
     failedSearch: "Erro ao buscar mercados.",
     failedAnalysis: "Erro ao analisar o mercado.",
     failedBet: "Erro ao apostar. Tente novamente.",
@@ -536,10 +578,11 @@ function MarketListAttachment({ markets, onSelect }: { markets: MarketInfo[]; on
 
 // ─── Chat Attachment: Market Preview (before analysis) ───
 
-function MarketPreviewAttachment({ market, lang, isConnected, onAnalyze, onSkip }: {
+function MarketPreviewAttachment({ market, lang, isConnected, onAnalyze, onSkip, onContext }: {
   market: MarketInfo; lang: Lang; isConnected: boolean
   onAnalyze: (market: MarketInfo) => void
   onSkip: (market: MarketInfo) => void
+  onContext?: (title: string, slug: string) => void
 }) {
   return (
     <div className="mt-2 border border-white/[0.10] bg-white/[0.04]">
@@ -574,6 +617,13 @@ function MarketPreviewAttachment({ market, lang, isConnected, onAnalyze, onSkip 
             title={t(lang, 'connectForAnalysis')}>
             <Wallet className="w-3.5 h-3.5" />
             {t(lang, 'detectAgents')}
+          </button>
+        )}
+        {onContext && (
+          <button onClick={() => onContext(market.question || market.slug, market.slug)}
+            className="flex-1 py-2.5 text-[12px] font-semibold border border-blue-500/30 text-blue-400 hover:bg-blue-500/10 transition-colors active:scale-[0.97] flex items-center justify-center gap-1.5">
+            <TrendingUp className="w-3.5 h-3.5" />
+            {t(lang, 'stats')}
           </button>
         )}
         <button onClick={() => onSkip(market)}
@@ -810,7 +860,7 @@ function DeepAnalysisAttachment({ analysis, market, lang, onExplain, onSkipToBet
           <button onClick={() => onContext(market.question || market.slug, market.slug)}
             className="flex-1 py-2.5 text-[12px] font-semibold border border-blue-500/30 text-blue-400 hover:bg-blue-500/10 transition-colors active:scale-[0.97] flex items-center justify-center gap-1.5">
             <TrendingUp className="w-3.5 h-3.5" />
-            Stats
+            {t(lang, 'stats')}
           </button>
         )}
         <button onClick={() => onSkipToBet(market, analysis)}
@@ -1132,7 +1182,7 @@ function BetTimelineAttachment({ steps, side, amount, market }: {
 
 // ─── Chat Attachment: PIN Setup ───
 
-function PinSetupAttachment({ wallet, onComplete }: { wallet: string; onComplete: () => void }) {
+function PinSetupAttachment({ wallet, onComplete, lang }: { wallet: string; onComplete: () => void; lang: Lang }) {
   const [digits, setDigits] = useState(['', '', '', ''])
   const [confirm, setConfirm] = useState(['', '', '', ''])
   const [step, setStep] = useState<'create' | 'confirm' | 'done'>('create')
@@ -1190,7 +1240,7 @@ function PinSetupAttachment({ wallet, onComplete }: { wallet: string; onComplete
       <div className="mt-2 border border-emerald-500/20 bg-emerald-500/[0.03] px-4 py-3">
         <div className="flex items-center gap-2">
           <CheckCircle className="w-4 h-4 text-emerald-500" />
-          <span className="text-[12px] font-mono text-emerald-500">PIN created</span>
+          <span className="text-[12px] font-mono text-emerald-500">{t(lang, 'pinCreated')}</span>
         </div>
       </div>
     )
@@ -1203,7 +1253,7 @@ function PinSetupAttachment({ wallet, onComplete }: { wallet: string; onComplete
   return (
     <div className="mt-2 border border-white/[0.10] bg-white/[0.04] px-4 py-3">
       <div className="text-[9px] font-bold font-mono text-white/30 tracking-[1.5px] mb-3">
-        {step === 'create' ? 'CREATE PIN' : 'CONFIRM PIN'}
+        {step === 'create' ? t(lang, 'pinSetupTitle') : t(lang, 'pinConfirmTitle')}
       </div>
       <div className="flex gap-2 justify-center mb-3">
         {activeDigits.map((d, i) => (
@@ -1225,7 +1275,7 @@ function PinSetupAttachment({ wallet, onComplete }: { wallet: string; onComplete
 
 // ─── Chat Attachment: PIN Verify ───
 
-function PinVerifyAttachment({ wallet, onSuccess }: { wallet: string; onSuccess: (token: string) => void }) {
+function PinVerifyAttachment({ wallet, onSuccess, lang }: { wallet: string; onSuccess: (token: string) => void; lang: Lang }) {
   const [digits, setDigits] = useState(['', '', '', ''])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -1262,7 +1312,7 @@ function PinVerifyAttachment({ wallet, onSuccess }: { wallet: string; onSuccess:
         setError(`Locked. Try again in ${data.minutesLeft} min.`)
       } else {
         setAttemptsLeft(data.attemptsRemaining ?? null)
-        setError('Wrong PIN')
+        setError(t(lang, 'pinWrong'))
         setDigits(['', '', '', ''])
         setTimeout(() => refs[0].current?.focus(), 100)
       }
@@ -1272,7 +1322,7 @@ function PinVerifyAttachment({ wallet, onSuccess }: { wallet: string; onSuccess:
 
   return (
     <div className="mt-2 border border-white/[0.10] bg-white/[0.04] px-4 py-3">
-      <div className="text-[9px] font-bold font-mono text-white/30 tracking-[1.5px] mb-3">ENTER PIN</div>
+      <div className="text-[9px] font-bold font-mono text-white/30 tracking-[1.5px] mb-3">{t(lang, 'pinVerifyTitle')}</div>
       <div className="flex gap-2 justify-center mb-3">
         {digits.map((d, i) => (
           <input key={i} ref={refs[i]} type="password" inputMode="numeric" maxLength={1} value={d}
@@ -1282,10 +1332,10 @@ function PinVerifyAttachment({ wallet, onSuccess }: { wallet: string; onSuccess:
           />
         ))}
       </div>
-      {loading && <div className="text-[10px] font-mono text-amber-400 text-center animate-pulse">Verifying...</div>}
+      {loading && <div className="text-[10px] font-mono text-amber-400 text-center animate-pulse">...</div>}
       {error && <div className="text-[10px] font-mono text-red-400 text-center">{error}</div>}
       {attemptsLeft !== null && attemptsLeft > 0 && (
-        <div className="text-[9px] font-mono text-white/20 text-center mt-1">{attemptsLeft} attempts remaining</div>
+        <div className="text-[9px] font-mono text-white/20 text-center mt-1">{t(lang, 'attemptsLeft').replace('{n}', String(attemptsLeft))}</div>
       )}
     </div>
   )
@@ -1293,14 +1343,14 @@ function PinVerifyAttachment({ wallet, onSuccess }: { wallet: string; onSuccess:
 
 // ─── Chat Attachment: Balance View ───
 
-function BalanceViewAttachment({ positions, totalValue, totalPnl, onSell }: {
+function BalanceViewAttachment({ positions, totalValue, totalPnl, onSell, lang }: {
   positions: BalancePosition[]; totalValue: number; totalPnl: number
-  onSell: (pos: BalancePosition) => void
+  onSell: (pos: BalancePosition) => void; lang: Lang
 }) {
   return (
     <div className="mt-2 border border-white/[0.10] bg-white/[0.04]">
       <div className="px-4 py-2 border-b border-white/[0.06] flex items-center justify-between">
-        <span className="text-[9px] font-bold font-mono text-white/30 tracking-[1.5px]">YOUR POSITIONS</span>
+        <span className="text-[9px] font-bold font-mono text-white/30 tracking-[1.5px]">{t(lang, 'yourPositions')}</span>
         <span className="text-[10px] font-mono text-white/20">{positions.length} open</span>
       </div>
       <div className="grid grid-cols-2 gap-px bg-white/[0.06]">
@@ -1337,7 +1387,7 @@ function BalanceViewAttachment({ positions, totalValue, totalPnl, onSell }: {
                   </span>
                   <button onClick={() => onSell(pos)}
                     className="px-3 py-1 text-[10px] font-bold font-mono tracking-[1px] border border-amber-500/30 text-amber-400 hover:bg-amber-500/10 transition-colors">
-                    SELL
+                    {t(lang, 'sell')}
                   </button>
                 </div>
               </div>
@@ -1345,7 +1395,7 @@ function BalanceViewAttachment({ positions, totalValue, totalPnl, onSell }: {
           ))}
         </div>
       ) : (
-        <div className="px-4 py-6 text-center text-[12px] font-mono text-white/20">No open positions</div>
+        <div className="px-4 py-6 text-center text-[12px] font-mono text-white/20">{t(lang, 'noPositions')}</div>
       )}
     </div>
   )
@@ -1399,10 +1449,10 @@ function SellTimelineAttachment({ steps, marketSlug }: { steps: BetTimelineStep[
 
 // ─── Chat Attachment: Context Insight ───
 
-function ContextInsightAttachment({ insight, keyStats }: { insight: string; keyStats: string[] }) {
+function ContextInsightAttachment({ insight, keyStats, lang }: { insight: string; keyStats: string[]; lang: Lang }) {
   return (
     <div className="mt-2 border border-blue-500/20 bg-blue-500/[0.03] px-4 py-3">
-      <div className="text-[9px] font-bold font-mono text-blue-400/60 tracking-[1.5px] mb-2">CONTEXT / STATS</div>
+      <div className="text-[9px] font-bold font-mono text-blue-400/60 tracking-[1.5px] mb-2">{t(lang, 'contextStats')}</div>
       <div className="text-[12px] text-white/60 leading-relaxed mb-2">{insight}</div>
       {keyStats.length > 0 && (
         <div className="space-y-1">
@@ -2645,7 +2695,7 @@ export default function PredictChat() {
                   )}
                   {msg.attachment.type === 'marketPreview' && (
                     <MarketPreviewAttachment market={msg.attachment.market} lang={lang}
-                      isConnected={isConnected} onAnalyze={handleAnalyzeMarket} onSkip={handleSkipAnalysis} />
+                      isConnected={isConnected} onAnalyze={handleAnalyzeMarket} onSkip={handleSkipAnalysis} onContext={fetchContext} />
                   )}
                   {msg.attachment.type === 'betChoice' && (
                     <BetChoiceAttachment slug={msg.attachment.slug} yesPrice={msg.attachment.yesPrice}
@@ -2685,20 +2735,20 @@ export default function PredictChat() {
                     <PortfolioAttachment data={msg.attachment.data} />
                   )}
                   {msg.attachment.type === 'pinSetup' && (
-                    <PinSetupAttachment wallet={msg.attachment.wallet} onComplete={() => showBalance()} />
+                    <PinSetupAttachment wallet={msg.attachment.wallet} onComplete={() => showBalance()} lang={lang} />
                   )}
                   {msg.attachment.type === 'pinVerify' && (
-                    <PinVerifyAttachment wallet={msg.attachment.wallet} onSuccess={handlePinSuccess} />
+                    <PinVerifyAttachment wallet={msg.attachment.wallet} onSuccess={handlePinSuccess} lang={lang} />
                   )}
                   {msg.attachment.type === 'balanceView' && (
                     <BalanceViewAttachment positions={msg.attachment.positions} totalValue={msg.attachment.totalValue}
-                      totalPnl={msg.attachment.totalPnl} onSell={handleSell} />
+                      totalPnl={msg.attachment.totalPnl} onSell={handleSell} lang={lang} />
                   )}
                   {msg.attachment.type === 'sellTimeline' && (
                     <SellTimelineAttachment steps={msg.attachment.steps} marketSlug={msg.attachment.marketSlug} />
                   )}
                   {msg.attachment.type === 'contextInsight' && (
-                    <ContextInsightAttachment insight={msg.attachment.insight} keyStats={msg.attachment.keyStats} />
+                    <ContextInsightAttachment insight={msg.attachment.insight} keyStats={msg.attachment.keyStats} lang={lang} />
                   )}
                 </div>
               )}
