@@ -2195,6 +2195,17 @@ export default function PredictChat() {
     }
   }, [inlineJoinCode, address, inlineJoinLoading])
 
+  // Auto-join when user connects wallet after QR scan
+  const autoJoinTriggered = useRef(false)
+  useEffect(() => {
+    if (autoJoinCode && address && !aiGateEligible && inlineJoinCode && !autoJoinTriggered.current) {
+      autoJoinTriggered.current = true
+      // Small delay so user sees the banner briefly before auto-join
+      const t = setTimeout(() => handleInlineJoin(), 800)
+      return () => clearTimeout(t)
+    }
+  }, [autoJoinCode, address, aiGateEligible, inlineJoinCode, handleInlineJoin])
+
   // Chat state
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [inputText, setInputText] = useState('')
@@ -2907,8 +2918,8 @@ export default function PredictChat() {
         </div>
       )}
 
-      {/* Inline Join Banner (when connected but AI locked) */}
-      {isConnected && !aiGateEligible && (
+      {/* Inline Join Banner (only for QR scan arrivals who haven't joined yet) */}
+      {isConnected && !aiGateEligible && autoJoinCode && (
         <div className="border-b border-[#836EF9]/20 bg-[#836EF9]/[0.04] flex-shrink-0">
           <div className="max-w-2xl mx-auto px-4 py-2.5 flex items-center gap-3">
             <Lock className="w-3.5 h-3.5 text-[#836EF9] flex-shrink-0" />
