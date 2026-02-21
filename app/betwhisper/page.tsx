@@ -44,18 +44,14 @@ function Counter({ end, suffix = '' }: { end: number; suffix?: string }) {
 
 // Rotating assistant names
 const ASSISTANT_NAMES = [
-  'Don Fede',       // ES - Mexico
-  'Buddy',          // EN - casual
-  'La Güera',       // ES - Mexico
-  'Seu Jorge',      // PT - Brazil
-  'El Profe',       // ES - universal
-  'Mate',           // EN - Australia
-  'Doña Mago',      // ES - Mexico
-  '老王',            // ZH - Lǎo Wáng, "Old Wang"
-  'Coach',          // EN - universal
-  'Dona Cida',      // PT - Brazil
-  'Tío Beto',       // ES - universal
-  '小明',            // ZH - Xiǎo Míng
+  'Don Fede',
+  'Buddy',
+  'La Guera',
+  'Seu Jorge',
+  'El Profe',
+  'Mate',
+  'Coach',
+  'Dona Cida',
 ]
 
 function RotatingName() {
@@ -84,7 +80,7 @@ function RotatingName() {
   )
 }
 
-// Live conversation demo with personalized assistant name
+// Live conversation demo
 function ConversationDemo() {
   const [step, setStep] = useState(0)
   const [nameIdx, setNameIdx] = useState(0)
@@ -93,22 +89,23 @@ function ConversationDemo() {
     const run = () => {
       setStep(0)
       setNameIdx(prev => (prev + 1) % ASSISTANT_NAMES.length)
-      const delays = [800, 2400, 4000, 5800, 7600]
+      const delays = [800, 2400, 4000, 5800, 7600, 9400]
       return delays.map((d, i) => setTimeout(() => setStep(i + 1), d))
     }
     const initial = run()
-    const loop = setInterval(() => { run() }, 11000)
+    const loop = setInterval(() => { run() }, 13000)
     return () => { initial.forEach(clearTimeout); clearInterval(loop) }
   }, [])
 
   const name = ASSISTANT_NAMES[nameIdx]
 
   const lines = [
-    { who: 'user', text: `${name}, what are the odds on Chiefs winning?` },
-    { who: 'agent', text: 'Chiefs at $0.62 YES. Scanning 29 whale wallets...' },
+    { who: 'user', text: `${name}, what are the odds on Verstappen winning?` },
+    { who: 'agent', text: 'Verstappen at $0.21 YES. Scanning 29 whale wallets...' },
     { who: 'agent', text: '4 tracked wallets found. 78% weighted consensus YES.', tag: 'SIGNAL' },
     { who: 'agent', text: '2 AI agents detected. Consensus may be inflated.', tag: 'WARNING' },
     { who: 'user', text: `${name}, bet $5 on Yes` },
+    { who: 'agent', text: 'Confirmed. 23.8 shares at $0.21. MON intent recorded on Monad.', tag: 'CONFIRMED' },
   ]
 
   return (
@@ -123,7 +120,7 @@ function ConversationDemo() {
           <span className="text-[10px] text-[--text-tertiary] font-mono">monad:143</span>
         </div>
       </div>
-      <div className="p-5 space-y-3 min-h-[280px]">
+      <div className="p-5 space-y-3 min-h-[320px]">
         {lines.map((line, i) => (
           i < step && (
             <div
@@ -142,25 +139,24 @@ function ConversationDemo() {
                   ? 'bg-white text-black'
                   : line.tag === 'WARNING'
                     ? 'border border-amber-500/30 text-amber-400/90'
-                    : 'border border-[--border-light] text-white/70'
+                    : line.tag === 'CONFIRMED'
+                      ? 'border border-emerald-500/30 text-emerald-400/90'
+                      : 'border border-[--border-light] text-white/70'
               }`}>
-                {line.tag && line.tag !== 'WARNING' && (
-                  <span className="text-[9px] font-bold tracking-wider text-emerald-500 block mb-1">{line.tag}</span>
+                {line.tag === 'SIGNAL' && (
+                  <span className="text-[9px] font-bold tracking-wider text-emerald-500 block mb-1">SIGNAL</span>
                 )}
                 {line.tag === 'WARNING' && (
                   <span className="text-[9px] font-bold tracking-wider text-amber-500 block mb-1">AGENT SHIELD</span>
+                )}
+                {line.tag === 'CONFIRMED' && (
+                  <span className="text-[9px] font-bold tracking-wider text-emerald-500 block mb-1">CONFIRMED</span>
                 )}
                 {line.text}
               </div>
             </div>
           )
         ))}
-        {step >= 5 && (
-          <div className="flex items-center gap-2 pt-2 border-t border-[--border-light]">
-            <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
-            <span className="text-[12px] text-emerald-500 font-mono">Confirmed on Polymarket. $5 YES at 0.62</span>
-          </div>
-        )}
       </div>
     </div>
   )
@@ -174,6 +170,7 @@ export default function BetWhisperLanding() {
   const howItWorks = useInView()
   const shield = useInView()
   const stack = useInView()
+  const crossChain = useInView()
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -197,10 +194,10 @@ export default function BetWhisperLanding() {
               How it works
             </a>
             <a
-              href="#agent-shield"
+              href="#cross-chain"
               className="text-[13px] text-[--text-secondary] hover:text-white transition-colors duration-200 hidden sm:block"
             >
-              Agent Shield
+              Cross-chain
             </a>
             <a
               href="#groups"
@@ -227,7 +224,7 @@ export default function BetWhisperLanding() {
               loaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
             }`}>
               <span className="text-[13px] text-[--text-secondary]">
-                Your voice interface to prediction markets on Polymarket
+                The conversational interface to prediction markets
               </span>
             </div>
 
@@ -244,7 +241,7 @@ export default function BetWhisperLanding() {
             <p className={`text-[16px] md:text-[18px] text-[--text-secondary] max-w-xl leading-relaxed mb-10 transition-all duration-700 delay-500 ${
               loaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
             }`}>
-              Name your AI assistant. Ask it about any prediction market. It scans 29 whale wallets, warns you about bots, and executes your bet on Polymarket CLOB. Talk through your smart glasses, send a voice note, or type.
+              Name your AI assistant. Ask it about any prediction market. It scans whale wallets, detects bot manipulation, and executes your bet cross-chain: pay with MON on Monad, settle on Polymarket. Talk through smart glasses, send a voice note, or type.
             </p>
 
             {/* CTAs */}
@@ -274,7 +271,7 @@ export default function BetWhisperLanding() {
           </div>
         </div>
 
-        {/* Bottom border with grid crosshair */}
+        {/* Bottom border */}
         <div className="border-t border-[--border]" />
       </section>
 
@@ -285,10 +282,10 @@ export default function BetWhisperLanding() {
             stats.visible ? 'opacity-100' : 'opacity-0'
           }`}>
             {[
+              { value: 2, suffix: '', label: 'Chains (Monad + Polygon)' },
               { value: 29, suffix: '', label: 'Tracked whale wallets' },
-              { value: 196, suffix: '', label: 'Wallets analyzed' },
-              { value: 12, suffix: '', label: 'Scoring attributes' },
-              { value: 7, suffix: '', label: 'Bot detection signals' },
+              { value: 12, suffix: '', label: 'Bot scoring attributes' },
+              { value: 3, suffix: '', label: 'Channels (text, voice, glasses)' },
             ].map((stat, i) => (
               <div
                 key={stat.label}
@@ -313,39 +310,114 @@ export default function BetWhisperLanding() {
             <h2 className={`text-[clamp(1.8rem,4vw,3rem)] font-bold tracking-tight max-w-2xl transition-all duration-700 ${
               howItWorks.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
             }`}>
-              Three steps from question to on-chain bet
+              Five steps from question to cross-chain bet
             </h2>
           </div>
 
           {/* Steps grid */}
-          <div className="grid md:grid-cols-3">
+          <div className="grid md:grid-cols-5">
             {[
               {
                 num: '01',
                 title: 'Ask',
-                desc: 'Ask about any prediction market. Type, send a voice note, or talk through your smart glasses. "What are the odds on Chiefs winning?" Works in English and Spanish.',
+                desc: 'Search any market. F1, NBA, crypto, politics. Type, voice note, or talk through smart glasses.',
               },
               {
                 num: '02',
                 title: 'Scan',
-                desc: 'BetWhisper scans the market against 29 tracked whale wallets. Weighted consensus, conviction levels, and bot detection in real time.',
+                desc: 'Agent Radar scans 29 whale wallets. Weighted consensus, conviction levels, bot detection.',
               },
               {
                 num: '03',
                 title: 'Bet',
-                desc: 'Place your bet on Polymarket CLOB with a voice command or a single tap. Fill-or-kill execution with slippage protection. Signal hash recorded on Monad.',
+                desc: 'Pay with MON on Monad. BetWhisper executes on Polymarket CLOB with slippage protection.',
+              },
+              {
+                num: '04',
+                title: 'Track',
+                desc: 'Live portfolio with P&L. Transaction history with dual explorer links (Monad + Polygon).',
+              },
+              {
+                num: '05',
+                title: 'Cash Out',
+                desc: 'Sell your position. Proceeds auto-convert back to MON on Monad. Full cross-chain cycle.',
               },
             ].map((step, i) => (
               <div
                 key={step.num}
-                className={`px-6 py-10 ${i < 2 ? 'border-r border-[--border]' : ''} border-b md:border-b-0 border-[--border] transition-all duration-700`}
-                style={{ transitionDelay: `${i * 150}ms` }}
+                className={`px-6 py-10 ${i < 4 ? 'border-r border-[--border]' : ''} border-b md:border-b-0 border-[--border] transition-all duration-700`}
+                style={{ transitionDelay: `${i * 100}ms` }}
               >
                 <span className="text-[12px] font-mono text-[--text-tertiary] block mb-6">{step.num}</span>
-                <h3 className="text-[22px] font-bold mb-3">{step.title}</h3>
-                <p className="text-[14px] text-[--text-secondary] leading-relaxed">{step.desc}</p>
+                <h3 className="text-[20px] font-bold mb-3">{step.title}</h3>
+                <p className="text-[13px] text-[--text-secondary] leading-relaxed">{step.desc}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Cross-Chain */}
+      <section id="cross-chain" ref={crossChain.ref} className="border-b border-[--border]">
+        <div className="max-w-[1200px] mx-auto">
+          <div className="grid md:grid-cols-2">
+            {/* Left: explanation */}
+            <div className={`px-6 py-16 md:py-24 md:border-r border-[--border] transition-all duration-700 ${
+              crossChain.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+            }`}>
+              <div className="flex items-center gap-2 mb-6">
+                <div className="w-2 h-2 bg-[#836EF9] rounded-full" />
+                <span className="text-[13px] text-[#836EF9] font-semibold">Cross-Chain Execution</span>
+              </div>
+              <h2 className="text-[clamp(1.8rem,4vw,2.8rem)] font-bold tracking-tight mb-6">
+                Pay with MON. Bet on Polymarket. Cash out to MON.
+              </h2>
+              <p className="text-[14px] text-[--text-secondary] leading-relaxed mb-8">
+                BetWhisper bridges the gap between Monad and Polymarket. Your MON payment is recorded on-chain as an intent signal. The bet executes on Polygon via Polymarket CLOB. When you sell, proceeds convert back to MON automatically.
+              </p>
+              <div className="space-y-3">
+                {[
+                  'MON intent recorded on Monad (provenance layer)',
+                  'Fill-or-kill execution on Polymarket CLOB',
+                  'Sell positions and auto-cashout to MON',
+                  'Dual tx hashes: Monad + Polygon for every trade',
+                ].map((item, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <div className="w-1 h-1 bg-white rounded-full" />
+                    <span className="text-[14px] text-white/80">{item}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Right: visual flow */}
+            <div className={`px-6 py-16 md:py-24 flex items-center transition-all duration-700 delay-200 ${
+              crossChain.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+            }`}>
+              <div className="w-full space-y-3">
+                {[
+                  { step: '1', chain: 'MONAD', action: 'MON payment received', color: 'emerald', hash: '0x7a3f...c82d' },
+                  { step: '2', chain: 'MONAD', action: 'Intent signal recorded', color: 'emerald', hash: '0x9b2e...f41a' },
+                  { step: '3', chain: 'POLYGON', action: 'CLOB order filled (23.8 shares @ $0.21)', color: 'blue', hash: '0x4d1c...a93b' },
+                  { step: '4', chain: 'POLYGON', action: 'Position open: 23.8 YES shares', color: 'blue', hash: '' },
+                  { step: '5', chain: 'MONAD', action: 'Sell: 45.26 MON cashout sent', color: 'emerald', hash: '0xf82a...d17c' },
+                ].map((item) => (
+                  <div key={item.step} className={`border ${
+                    item.color === 'emerald' ? 'border-emerald-500/20 bg-emerald-500/[0.02]' : 'border-blue-500/20 bg-blue-500/[0.02]'
+                  } px-4 py-3 flex items-center justify-between`}>
+                    <div className="flex items-center gap-3">
+                      <span className={`text-[10px] font-mono font-bold ${
+                        item.color === 'emerald' ? 'text-emerald-500' : 'text-blue-400'
+                      }`}>{item.chain}</span>
+                      <span className="text-[13px] text-white/70">{item.action}</span>
+                    </div>
+                    {item.hash && (
+                      <span className="text-[10px] font-mono text-white/20">{item.hash}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -363,10 +435,10 @@ export default function BetWhisperLanding() {
                 <span className="text-[13px] text-amber-500 font-semibold">Agent Shield</span>
               </div>
               <h2 className="text-[clamp(1.8rem,4vw,2.8rem)] font-bold tracking-tight mb-6">
-                The first layer of protection against AI manipulation
+                Protection against AI market manipulation
               </h2>
               <p className="text-[14px] text-[--text-secondary] leading-relaxed mb-8">
-                Before every bet, BetWhisper scores each wallet using 12 attributes and 7 behavioral signals to separate human whales from AI agents. Interval regularity, split/merge patterns, sizing consistency, 24/7 trading, abnormal win rates.
+                Before every bet, BetWhisper scores each wallet using 12 attributes and 7 behavioral signals to separate human whales from AI agents.
               </p>
               <div className="space-y-3">
                 {[
@@ -433,14 +505,14 @@ export default function BetWhisperLanding() {
             {[
               {
                 icon: '💬',
-                title: 'Text',
-                desc: 'Type from your computer or phone. The web dashboard shows your full portfolio, whale signals, and bet history.',
+                title: 'Web + Text',
+                desc: 'Full web dashboard with portfolio, P&L tracking, transaction history, and smart market search across sports, crypto, and politics.',
                 status: 'Live',
               },
               {
                 icon: '🎙️',
-                title: 'Voice Message',
-                desc: 'Send a voice note to your assistant. On-device transcription via SFSpeechRecognizer with Bluetooth HFP. Hands-free betting from anywhere.',
+                title: 'Voice',
+                desc: 'Send a voice note to your assistant. On-device transcription via SFSpeechRecognizer with Bluetooth HFP. Hands-free betting.',
                 status: 'Live',
               },
               {
@@ -457,12 +529,8 @@ export default function BetWhisperLanding() {
                 <div className="text-2xl mb-4">{channel.icon}</div>
                 <div className="flex items-center gap-2 mb-3">
                   <h3 className="text-[22px] font-bold">{channel.title}</h3>
-                  <span className={`text-[10px] font-semibold tracking-wider px-2 py-0.5 ${
-                    channel.status === 'Live'
-                      ? 'bg-emerald-500/10 text-emerald-500'
-                      : 'bg-white/5 text-[--text-tertiary]'
-                  }`}>
-                    {channel.status.toUpperCase()}
+                  <span className="text-[10px] font-semibold tracking-wider px-2 py-0.5 bg-emerald-500/10 text-emerald-500">
+                    LIVE
                   </span>
                 </div>
                 <p className="text-[14px] text-[--text-secondary] leading-relaxed">{channel.desc}</p>
@@ -475,22 +543,19 @@ export default function BetWhisperLanding() {
       {/* Group Drafts */}
       <section id="groups" className="border-b border-[--border]">
         <div className="max-w-[1200px] mx-auto">
-          {/* Section header */}
           <div className="px-6 py-16 md:py-24 border-b border-[--border]">
             <span className="text-[13px] text-[--text-secondary] block mb-4">Groups</span>
             <h2 className="text-[clamp(1.8rem,4vw,3rem)] font-bold tracking-tight max-w-2xl">
-              Bet with friends
+              Bet with friends. Unlock AI.
             </h2>
             <p className="text-[14px] text-[--text-secondary] mt-3 max-w-lg">
-              Create a group and choose your mode. Compete on conviction or strategy.
+              Create a group, share a QR code, and compete. Invite one friend to unlock AI-powered market explanations.
             </p>
           </div>
 
-          {/* Two-column: modes + invite mockup */}
           <div className="grid md:grid-cols-2">
             {/* Left: Mode cards */}
             <div className="px-6 py-10 md:border-r border-[--border] space-y-4">
-              {/* Draft Pool */}
               <div className="border border-emerald-500/30 bg-emerald-500/[0.02] p-5">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-[18px] font-bold">Draft Pool</h3>
@@ -503,7 +568,6 @@ export default function BetWhisperLanding() {
                 </p>
               </div>
 
-              {/* Leaderboard */}
               <div className="border border-[--border-light] bg-black p-5">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-[18px] font-bold">Leaderboard</h3>
@@ -515,9 +579,22 @@ export default function BetWhisperLanding() {
                   Free competition. Each member picks their own markets. Ranked by P&L.
                 </p>
               </div>
+
+              {/* QR flow */}
+              <div className="border border-[#836EF9]/30 bg-[#836EF9]/[0.02] p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-[18px] font-bold">QR Invite</h3>
+                  <span className="text-[10px] font-semibold tracking-wider px-2 py-0.5 bg-[#836EF9]/10 text-[#836EF9]">
+                    SCAN TO JOIN
+                  </span>
+                </div>
+                <p className="text-[14px] text-[--text-secondary] leading-relaxed">
+                  Share a QR code. Friend scans, connects wallet, auto-joins. AI features unlock instantly for the group creator.
+                </p>
+              </div>
             </div>
 
-            {/* Right: Invite flow mockup */}
+            {/* Right: Group preview */}
             <div className="px-6 py-10 flex items-center">
               <div className="w-full border border-[--border-light] bg-black">
                 <div className="flex items-center gap-2 px-5 py-3 border-b border-[--border-light]">
@@ -531,43 +608,22 @@ export default function BetWhisperLanding() {
                   </div>
                   <div className="flex justify-between py-2 border-b border-[--border]">
                     <span className="text-[--text-secondary]">Mode</span>
-                    <span className="text-emerald-400 font-semibold">Draft Pool</span>
-                  </div>
-                  <div className="flex justify-between py-2 border-b border-[--border]">
-                    <span className="text-[--text-secondary]">Market</span>
-                    <span className="text-white/80 font-semibold">&quot;Will Verstappen win Australian GP?&quot;</span>
+                    <span className="text-emerald-400 font-semibold">Leaderboard</span>
                   </div>
                   <div className="flex justify-between py-2 border-b border-[--border]">
                     <span className="text-[--text-secondary]">Members</span>
                     <span className="text-white font-semibold">3/5</span>
                   </div>
+                  <div className="flex justify-between py-2 border-b border-[--border]">
+                    <span className="text-[--text-secondary]">AI Gate</span>
+                    <span className="text-emerald-400 font-semibold">UNLOCKED</span>
+                  </div>
                   <div className="flex justify-between py-2">
-                    <span className="text-[--text-secondary]">Invite code</span>
+                    <span className="text-[--text-secondary]">Invite</span>
                     <span className="text-white font-mono font-semibold">BW-F1-2026</span>
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
-
-          {/* AI Gate callout */}
-          <div className="px-6 py-8 border-t border-[--border]">
-            <div className="border border-amber-500/20 bg-amber-500/[0.02] px-6 py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="flex items-start gap-3">
-                <div className="w-2 h-2 bg-amber-500 rounded-full mt-1.5 flex-shrink-0" />
-                <div>
-                  <p className="text-[14px] text-white font-semibold mb-1">Unlock &quot;Explain with AI&quot;</p>
-                  <p className="text-[13px] text-[--text-secondary]">
-                    Create a group and invite at least 1 friend to unlock AI-powered market explanations.
-                  </p>
-                </div>
-              </div>
-              <Link
-                href="/predict"
-                className="px-5 py-2.5 bg-white text-black text-[13px] font-semibold hover:bg-white/90 transition-colors duration-200 active:scale-[0.97] whitespace-nowrap flex-shrink-0"
-              >
-                Create Your First Group
-              </Link>
             </div>
           </div>
         </div>
@@ -582,12 +638,12 @@ export default function BetWhisperLanding() {
               stack.visible ? 'opacity-100' : 'opacity-0'
             }`}>
               {[
-                { name: 'Polymarket CLOB', desc: 'Order execution', url: 'https://polymarket.com' },
-                { name: 'Monad', desc: 'Signal provenance', url: 'https://monad.xyz' },
-                { name: 'Gemini Live', desc: 'Multimodal AI', url: 'https://deepmind.google/technologies/gemini/' },
+                { name: 'Monad', desc: 'Intent layer + data provenance', url: 'https://monad.xyz' },
+                { name: 'Polymarket CLOB', desc: 'Order execution on Polygon', url: 'https://polymarket.com' },
+                { name: 'Gemini Live', desc: 'Multimodal AI analysis', url: 'https://deepmind.google/technologies/gemini/' },
                 { name: 'SFSpeechRecognizer', desc: 'On-device voice', url: 'https://developer.apple.com/documentation/speech' },
-                { name: 'Agent Radar', desc: '29 whale wallets', url: '#agent-shield' },
-                { name: 'Meta Ray-Ban', desc: 'Smart glasses', url: 'https://www.ray-ban.com/usa/ray-ban-meta-smart-glasses' },
+                { name: 'Agent Radar', desc: '29 whale wallets + bot detection', url: '#agent-shield' },
+                { name: 'Meta Ray-Ban', desc: 'Smart glasses interface', url: 'https://www.ray-ban.com/usa/ray-ban-meta-smart-glasses' },
               ].map(tech => (
                 <a
                   key={tech.name}
@@ -617,7 +673,7 @@ export default function BetWhisperLanding() {
             <span className="text-[--text-secondary]">Start whispering.</span>
           </h2>
           <p className="text-[16px] text-[--text-secondary] max-w-md mx-auto mb-10">
-            Connect your wallet. See your Polymarket performance.
+            Pay with MON. Bet on Polymarket. Cash out cross-chain.
             Let your AI find the edge.
           </p>
           <Link

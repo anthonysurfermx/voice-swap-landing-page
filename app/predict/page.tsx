@@ -207,6 +207,31 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     failedAnalysis: "Failed to analyze market.",
     failedBet: "Failed to place bet. Please try again.",
     failedPortfolio: "Failed to load portfolio.",
+    pinMismatch: "PINs do not match",
+    failedSetPin: "Failed to set PIN",
+    networkError: "Network error",
+    pinLockedMsg: "Locked. Try again in {n} min.",
+    failedJoin: "Failed to join",
+    loadingGroups: "Loading groups...",
+    noGroups: "No groups yet",
+    noGroupsSub: "Create a group or join one with an invite code",
+    agentRadar: "AGENT RADAR",
+    agentCapitalFlow: "AGENT CAPITAL FLOW",
+    ofAgentCapital: "of agent capital",
+    dividedConsensus: "Divided. No clear consensus.",
+    noAgentSignal: "No agent signal detected.",
+    positionOpen: "POSITION OPEN",
+    txRejected: "Transaction rejected",
+    clobSell: "CLOB SELL",
+    connectWalletToJoin: "CONNECT WALLET TO JOIN GROUP",
+    joinGroup: "JOIN GROUP",
+    joinedGroup: "JOINED GROUP",
+    inviteFriend: "INVITE 1 FRIEND TO UNLOCK AI",
+    aiUnlocked: "AI UNLOCKED",
+    scanToJoin: "Scan to join group",
+    inviteCode: "INVITE CODE",
+    connectWalletForGroups: "Connect your wallet to use Groups",
+    groupsSubtitle: "Compete with friends. Unlock AI features.",
   },
   es: {
     greeting: "Hola! Que apuesta quieres hacer hoy?",
@@ -277,6 +302,31 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     failedAnalysis: "Error al analizar el mercado.",
     failedBet: "Error al apostar. Intenta de nuevo.",
     failedPortfolio: "Error al cargar portafolio.",
+    pinMismatch: "Los PINs no coinciden",
+    failedSetPin: "Error al configurar PIN",
+    networkError: "Error de red",
+    pinLockedMsg: "Bloqueado. Intenta en {n} min.",
+    failedJoin: "Error al unirse",
+    loadingGroups: "Cargando grupos...",
+    noGroups: "Sin grupos aun",
+    noGroupsSub: "Crea un grupo o unete con un codigo",
+    agentRadar: "RADAR DE AGENTES",
+    agentCapitalFlow: "FLUJO DE CAPITAL",
+    ofAgentCapital: "de capital de agentes",
+    dividedConsensus: "Dividido. Sin consenso.",
+    noAgentSignal: "Sin senal de agentes.",
+    positionOpen: "POSICION ABIERTA",
+    txRejected: "Transaccion rechazada",
+    clobSell: "VENTA CLOB",
+    connectWalletToJoin: "CONECTA TU WALLET PARA UNIRTE",
+    joinGroup: "UNIRSE AL GRUPO",
+    joinedGroup: "TE UNISTE AL GRUPO",
+    inviteFriend: "INVITA A 1 AMIGO PARA DESBLOQUEAR IA",
+    aiUnlocked: "IA DESBLOQUEADA",
+    scanToJoin: "Escanea para unirte",
+    inviteCode: "CODIGO DE INVITACION",
+    connectWalletForGroups: "Conecta tu wallet para usar Grupos",
+    groupsSubtitle: "Compite con amigos. Desbloquea funciones de IA.",
   },
   pt: {
     greeting: "Oi! Que aposta voce quer fazer hoje?",
@@ -347,6 +397,31 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     failedAnalysis: "Erro ao analisar o mercado.",
     failedBet: "Erro ao apostar. Tente novamente.",
     failedPortfolio: "Erro ao carregar portfolio.",
+    pinMismatch: "PINs nao coincidem",
+    failedSetPin: "Erro ao configurar PIN",
+    networkError: "Erro de rede",
+    pinLockedMsg: "Bloqueado. Tente em {n} min.",
+    failedJoin: "Erro ao entrar",
+    loadingGroups: "Carregando grupos...",
+    noGroups: "Sem grupos ainda",
+    noGroupsSub: "Crie um grupo ou entre com um codigo",
+    agentRadar: "RADAR DE AGENTES",
+    agentCapitalFlow: "FLUXO DE CAPITAL",
+    ofAgentCapital: "de capital de agentes",
+    dividedConsensus: "Dividido. Sem consenso.",
+    noAgentSignal: "Sem sinal de agentes.",
+    positionOpen: "POSICAO ABERTA",
+    txRejected: "Transacao rejeitada",
+    clobSell: "VENDA CLOB",
+    connectWalletToJoin: "CONECTE SUA WALLET PARA ENTRAR",
+    joinGroup: "ENTRAR NO GRUPO",
+    joinedGroup: "ENTROU NO GRUPO",
+    inviteFriend: "CONVIDE 1 AMIGO PARA DESBLOQUEAR IA",
+    aiUnlocked: "IA DESBLOQUEADA",
+    scanToJoin: "Escaneie para entrar",
+    inviteCode: "CODIGO DE CONVITE",
+    connectWalletForGroups: "Conecte sua wallet para usar Grupos",
+    groupsSubtitle: "Compita com amigos. Desbloqueie funcoes de IA.",
   },
 }
 
@@ -714,7 +789,7 @@ function DeepAnalysisAttachment({ analysis, market, lang, onExplain, onSkipToBet
     <div className="mt-2 border border-white/[0.10] bg-white/[0.04]">
       {/* Header */}
       <div className="px-4 py-2 border-b border-white/[0.06] flex items-center justify-between">
-        <span className="text-[9px] font-bold font-mono text-white/30 tracking-[1.5px]">AGENT RADAR</span>
+        <span className="text-[9px] font-bold font-mono text-white/30 tracking-[1.5px]">{t(lang, 'agentRadar')}</span>
         <span className="text-[9px] font-mono text-white/20">{analysis.holdersScanned} scanned / {analysis.totalHolders} holders</span>
       </div>
 
@@ -745,7 +820,7 @@ function DeepAnalysisAttachment({ analysis, market, lang, onExplain, onSkipToBet
 
       {/* Agent Capital Flow */}
       <div className="px-4 py-3 border-b border-white/[0.06]">
-        <div className="text-[10px] font-mono text-white/30 mb-2">AGENT CAPITAL FLOW</div>
+        <div className="text-[10px] font-mono text-white/30 mb-2">{t(lang, 'agentCapitalFlow')}</div>
         <div className="flex items-center gap-4 mb-2">
           <div className="flex-1">
             <div className="flex items-center justify-between mb-1">
@@ -803,11 +878,11 @@ function DeepAnalysisAttachment({ analysis, market, lang, onExplain, onSkipToBet
                 {analysis.smartMoneyDirection.toUpperCase()}
               </span>
               <span className="text-[18px] font-bold font-mono text-white">{analysis.smartMoneyPct}%</span>
-              <span className="text-[10px] text-white/30">of agent capital</span>
+              <span className="text-[10px] text-white/30">{t(lang, 'ofAgentCapital')}</span>
             </>
           ) : (
             <span className="text-[12px] font-mono text-white/40">
-              {analysis.smartMoneyDirection === 'Divided' ? 'Divided. No clear consensus.' : 'No agent signal detected.'}
+              {analysis.smartMoneyDirection === 'Divided' ? t(lang, 'dividedConsensus') : t(lang, 'noAgentSignal')}
             </span>
           )}
         </div>
@@ -1227,7 +1302,7 @@ function PinSetupAttachment({ wallet, onComplete, lang }: { wallet: string; onCo
     }
 
     if (digits.join('') !== confirm.join('')) {
-      setError('PINs do not match')
+      setError(t(lang, 'pinMismatch'))
       setConfirm(['', '', '', ''])
       setTimeout(() => confirmRefs[0].current?.focus(), 100)
       return
@@ -1245,9 +1320,9 @@ function PinSetupAttachment({ wallet, onComplete, lang }: { wallet: string; onCo
         onComplete()
       } else {
         const data = await res.json()
-        setError(data.error || 'Failed to set PIN')
+        setError(data.error || t(lang, 'failedSetPin'))
       }
-    } catch { setError('Network error') }
+    } catch { setError(t(lang, 'networkError')) }
     setLoading(false)
   }
 
@@ -1325,14 +1400,14 @@ function PinVerifyAttachment({ wallet, onSuccess, lang }: { wallet: string; onSu
       if (data.verified && data.token) {
         onSuccess(data.token)
       } else if (data.locked) {
-        setError(`Locked. Try again in ${data.minutesLeft} min.`)
+        setError(t(lang, 'pinLockedMsg', { n: data.minutesLeft }))
       } else {
         setAttemptsLeft(data.attemptsRemaining ?? null)
         setError(t(lang, 'pinWrong'))
         setDigits(['', '', '', ''])
         setTimeout(() => refs[0].current?.focus(), 100)
       }
-    } catch { setError('Network error') }
+    } catch { setError(t(lang, 'networkError')) }
     setLoading(false)
   }
 
@@ -1721,9 +1796,9 @@ function GroupsDrawer({ address, isConnected, lang, aiGateEligible, onEligibilit
           onEligibilityChange(checkData.eligible === true)
         }
       } else {
-        setJoinError(data.error || 'Failed to join')
+        setJoinError(data.error || t(lang, 'failedJoin'))
       }
-    } catch { setJoinError('Network error') } finally { setLoading(false) }
+    } catch { setJoinError(t(lang, 'networkError')) } finally { setLoading(false) }
   }, [joinCode, address, fetchGroups, onEligibilityChange])
 
   const copyCode = useCallback((code: string) => {
@@ -1774,8 +1849,8 @@ function GroupsDrawer({ address, isConnected, lang, aiGateEligible, onEligibilit
               <div className="w-10 h-10 border border-white/10 mx-auto mb-4 flex items-center justify-center">
                 <Users className="w-5 h-5 text-white/20" />
               </div>
-              <p className="text-[13px] text-white/40 mb-1">Connect your wallet to use Groups</p>
-              <p className="text-[10px] font-mono text-white/20">Compete with friends. Unlock AI features.</p>
+              <p className="text-[13px] text-white/40 mb-1">{t(lang, 'connectWalletForGroups')}</p>
+              <p className="text-[10px] font-mono text-white/20">{t(lang, 'groupsSubtitle')}</p>
             </div>
           ) : view === 'list' ? (
             <>
@@ -1788,12 +1863,12 @@ function GroupsDrawer({ address, isConnected, lang, aiGateEligible, onEligibilit
                 {aiGateEligible ? (
                   <>
                     <Unlock className="w-3.5 h-3.5 text-emerald-500" />
-                    <span className="text-[11px] font-mono text-emerald-500">AI UNLOCKED</span>
+                    <span className="text-[11px] font-mono text-emerald-500">{t(lang, 'aiUnlocked')}</span>
                   </>
                 ) : (
                   <>
                     <Lock className="w-3.5 h-3.5 text-[#836EF9]" />
-                    <span className="text-[11px] font-mono text-[#836EF9]">INVITE 1 FRIEND TO UNLOCK AI</span>
+                    <span className="text-[11px] font-mono text-[#836EF9]">{t(lang, 'inviteFriend')}</span>
                   </>
                 )}
               </div>
@@ -1801,7 +1876,7 @@ function GroupsDrawer({ address, isConnected, lang, aiGateEligible, onEligibilit
               {/* New group invite code */}
               {newGroupCode && (
                 <div className="border border-[#836EF9]/30 bg-[#836EF9]/[0.05] px-4 py-4 mb-4">
-                  <span className="text-[9px] font-bold font-mono text-[#836EF9] tracking-[1.5px]">INVITE CODE</span>
+                  <span className="text-[9px] font-bold font-mono text-[#836EF9] tracking-[1.5px]">{t(lang, 'inviteCode')}</span>
                   <div className="flex items-center gap-2 mt-2">
                     <span className="text-[24px] font-bold font-mono text-white tracking-[4px]">{newGroupCode}</span>
                     <button onClick={() => copyCode(newGroupCode)}
@@ -1812,7 +1887,7 @@ function GroupsDrawer({ address, isConnected, lang, aiGateEligible, onEligibilit
                   <div className="flex justify-center mt-3 p-3 bg-white rounded">
                     <QRCodeSVG value={`https://betwhisper.ai/predict?join=${newGroupCode}`} size={160} level="H" />
                   </div>
-                  <p className="text-[10px] font-mono text-white/30 mt-2 text-center">Scan to join group</p>
+                  <p className="text-[10px] font-mono text-white/30 mt-2 text-center">{t(lang, 'scanToJoin')}</p>
                 </div>
               )}
 
@@ -1820,15 +1895,15 @@ function GroupsDrawer({ address, isConnected, lang, aiGateEligible, onEligibilit
               {loading ? (
                 <div className="flex items-center gap-2 py-8 justify-center">
                   <Loader2 className="w-4 h-4 animate-spin text-white/30" />
-                  <span className="text-[12px] font-mono text-white/30">Loading groups...</span>
+                  <span className="text-[12px] font-mono text-white/30">{t(lang, 'loadingGroups')}</span>
                 </div>
               ) : groups.length === 0 ? (
                 <div className="py-6 text-center">
                   <div className="w-10 h-10 border border-white/10 mx-auto mb-3 flex items-center justify-center">
                     <Users className="w-5 h-5 text-white/20" />
                   </div>
-                  <p className="text-[13px] text-white/40 mb-1">No groups yet</p>
-                  <p className="text-[10px] font-mono text-white/20">Create a group or join one with an invite code</p>
+                  <p className="text-[13px] text-white/40 mb-1">{t(lang, 'noGroups')}</p>
+                  <p className="text-[10px] font-mono text-white/20">{t(lang, 'noGroupsSub')}</p>
                 </div>
               ) : (
                 <div className="space-y-1.5">
@@ -1917,7 +1992,7 @@ function GroupsDrawer({ address, isConnected, lang, aiGateEligible, onEligibilit
                   className="p-1 hover:bg-white/[0.06] transition-colors">
                   <ArrowLeft className="w-4 h-4 text-white/40" />
                 </button>
-                <span className="text-[9px] font-bold font-mono text-white/30 tracking-[1.5px]">JOIN GROUP</span>
+                <span className="text-[9px] font-bold font-mono text-white/30 tracking-[1.5px]">{t(lang, 'joinGroup')}</span>
               </div>
 
               {joinSuccess ? (
@@ -1933,7 +2008,7 @@ function GroupsDrawer({ address, isConnected, lang, aiGateEligible, onEligibilit
               ) : (
                 <>
                   <div className="mb-4">
-                    <label className="text-[9px] font-bold font-mono text-white/30 tracking-[1px] mb-1.5 block">INVITE CODE</label>
+                    <label className="text-[9px] font-bold font-mono text-white/30 tracking-[1px] mb-1.5 block">{t(lang, 'inviteCode')}</label>
                     <input type="text" value={joinCode} onChange={e => setJoinCode(e.target.value.toUpperCase())}
                       placeholder="e.g. BW-ABC123"
                       className="w-full bg-transparent border border-white/[0.08] px-4 py-2.5 text-[14px] font-mono text-white tracking-[2px] placeholder:text-white/20 placeholder:tracking-normal outline-none focus:border-white/20 transition-colors"
@@ -1978,7 +2053,7 @@ function GroupsDrawer({ address, isConnected, lang, aiGateEligible, onEligibilit
                   <div className="border border-white/[0.08] bg-white/[0.04] px-3 py-2.5 mb-3">
                     <div className="flex items-center justify-between">
                       <div>
-                        <span className="text-[9px] font-bold font-mono text-white/30 tracking-[1px]">INVITE CODE</span>
+                        <span className="text-[9px] font-bold font-mono text-white/30 tracking-[1px]">{t(lang, 'inviteCode')}</span>
                         <div className="text-[18px] font-bold font-mono text-white tracking-[3px] mt-0.5">
                           {selectedGroup.invite_code}
                         </div>
@@ -1991,7 +2066,7 @@ function GroupsDrawer({ address, isConnected, lang, aiGateEligible, onEligibilit
                     <div className="flex justify-center mt-3 p-3 bg-white rounded">
                       <QRCodeSVG value={`https://betwhisper.ai/predict?join=${selectedGroup.invite_code}`} size={140} level="H" />
                     </div>
-                    <p className="text-[10px] font-mono text-white/20 mt-1.5 text-center">Scan to join</p>
+                    <p className="text-[10px] font-mono text-white/20 mt-1.5 text-center">{t(lang, 'scanToJoin')}</p>
                   </div>
 
                   {/* AI Gate status */}
@@ -2003,7 +2078,7 @@ function GroupsDrawer({ address, isConnected, lang, aiGateEligible, onEligibilit
                     {Number(selectedGroup.member_count) >= 2 ? (
                       <>
                         <Unlock className="w-3 h-3 text-emerald-500" />
-                        <span className="text-[10px] font-mono text-emerald-500">AI UNLOCKED</span>
+                        <span className="text-[10px] font-mono text-emerald-500">{t(lang, 'aiUnlocked')}</span>
                       </>
                     ) : (
                       <>
@@ -2326,7 +2401,7 @@ export default function PredictChat() {
     const steps: BetTimelineStep[] = [
       { label: 'MON PAYMENT', chain: 'Monad', status: 'pending' },
       { label: 'CLOB EXECUTION', chain: 'Polygon', status: 'pending' },
-      { label: 'POSITION OPEN', chain: 'Confirmed', status: 'pending' },
+      { label: t(lang, 'positionOpen'), chain: 'Confirmed', status: 'pending' },
     ]
     const timelineId = addMessage('assistant', '', { type: 'betTimeline', steps: [...steps], side, amount, market: slug })
     const updateTimeline = (newSteps: BetTimelineStep[]) => {
@@ -2365,7 +2440,7 @@ export default function PredictChat() {
       updateTimeline(steps)
     } catch (err) {
       steps[0].status = 'error'
-      steps[0].errorMsg = err instanceof Error ? err.message : 'Transaction rejected'
+      steps[0].errorMsg = err instanceof Error ? err.message : t(lang, 'txRejected')
       steps[0].detail = undefined
       updateTimeline(steps)
       return
@@ -2419,7 +2494,7 @@ export default function PredictChat() {
         }
       } catch {
         steps[1].status = 'error'
-        steps[1].errorMsg = 'Network error'
+        steps[1].errorMsg = t(lang, 'networkError')
         updateTimeline(steps)
         return
       }
@@ -2515,7 +2590,7 @@ export default function PredictChat() {
         addMessage('assistant', lang === 'es' ? 'Primero crea un PIN de 4 digitos para proteger tu cuenta.' : 'First, create a 4-digit PIN to secure your account.', { type: 'pinSetup', wallet: address.toLowerCase() })
       }
     } catch {
-      addMessage('assistant', '', { type: 'error', text: 'Network error' })
+      addMessage('assistant', '', { type: 'error', text: t(lang, 'networkError') })
     }
   }, [isConnected, address, pinToken, addMessage, removeMessage, lang])
 
@@ -2557,7 +2632,7 @@ export default function PredictChat() {
         addMessage('assistant', lang === 'es' ? 'Primero crea un PIN de 4 digitos para proteger tu cuenta.' : 'First, create a 4-digit PIN to secure your account.', { type: 'pinSetup', wallet: address.toLowerCase() })
       }
     } catch {
-      addMessage('assistant', '', { type: 'error', text: 'Network error' })
+      addMessage('assistant', '', { type: 'error', text: t(lang, 'networkError') })
     }
   }, [isConnected, address, pinToken, addMessage, removeMessage, lang])
 
@@ -2588,7 +2663,7 @@ export default function PredictChat() {
     }
 
     const steps: BetTimelineStep[] = [
-      { label: 'CLOB SELL', chain: 'Polygon', status: 'pending' },
+      { label: t(lang, 'clobSell'), chain: 'Polygon', status: 'pending' },
       { label: 'MON CASHOUT', chain: 'Monad', status: 'pending' },
     ]
     const timelineId = addMessage('assistant', '', { type: 'sellTimeline', steps: [...steps], marketSlug: pos.marketSlug })
@@ -2648,7 +2723,7 @@ export default function PredictChat() {
       update(steps)
     } catch {
       steps[0].status = 'error'
-      steps[0].errorMsg = 'Network error'
+      steps[0].errorMsg = t(lang, 'networkError')
       update(steps)
     }
   }, [pinToken, address, addMessage, updateMessage, lang])
@@ -2921,7 +2996,7 @@ export default function PredictChat() {
             <Unlock className="w-4 h-4 text-emerald-500 flex-shrink-0" />
             <div>
               <div className="text-[12px] font-bold text-emerald-400">
-                {lang === 'es' ? 'IA DESBLOQUEADA' : 'AI UNLOCKED'}
+                {t(lang, 'aiUnlocked')}
               </div>
               <div className="text-[10px] font-mono text-emerald-500/60">
                 {lang === 'es' ? '"Explicar con IA" ahora disponible' : '"Explain with AI" now available'}
@@ -2938,12 +3013,12 @@ export default function PredictChat() {
             <Lock className="w-3.5 h-3.5 text-[#836EF9] flex-shrink-0" />
             {!isConnected ? (
               <span className="text-[11px] font-mono text-[#836EF9]">
-                {lang === 'es' ? 'CONECTA TU WALLET PARA UNIRTE AL GRUPO' : 'CONNECT WALLET TO JOIN GROUP'}
+                {t(lang, 'connectWalletToJoin')}
               </span>
             ) : (
               <>
                 <span className="text-[10px] font-mono text-[#836EF9] flex-shrink-0">
-                  {lang === 'es' ? 'UNIRSE AL GRUPO' : 'JOIN GROUP'}
+                  {t(lang, 'joinGroup')}
                 </span>
                 <span className="text-[13px] font-bold font-mono text-white tracking-[2px]">{inlineJoinCode}</span>
                 <button
@@ -2970,7 +3045,7 @@ export default function PredictChat() {
           <div className="max-w-2xl mx-auto px-4 py-2.5 flex items-center gap-2">
             <Check className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
             <span className="text-[11px] font-mono text-emerald-500">
-              {lang === 'es' ? 'TE UNISTE AL GRUPO' : 'JOINED GROUP'}
+              {t(lang, 'joinedGroup')}
             </span>
           </div>
         </div>
