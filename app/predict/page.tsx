@@ -17,6 +17,7 @@ import {
 import {
   Drawer, DrawerContent, DrawerTrigger, DrawerTitle,
 } from '@/components/ui/drawer'
+import { QRCodeSVG } from 'qrcode.react'
 import type { DeepAnalysisResult } from '../api/market/deep-analyze/route'
 import type { StrategyType } from '@/lib/polymarket-detector'
 import { calculateWinProbability } from '@/lib/probability'
@@ -1630,12 +1631,13 @@ function PortfolioAttachment({ data }: { data: PortfolioData }) {
 
 // ─── Groups Drawer ───
 
-function GroupsDrawer({ address, isConnected, lang, aiGateEligible, onEligibilityChange }: {
+function GroupsDrawer({ address, isConnected, lang, aiGateEligible, onEligibilityChange, autoJoinCode }: {
   address: string | null
   isConnected: boolean
   lang: Lang
   aiGateEligible: boolean
   onEligibilityChange: (eligible: boolean) => void
+  autoJoinCode?: string
 }) {
   const [open, setOpen] = useState(false)
   const [view, setView] = useState<GroupsView>('list')
@@ -1740,6 +1742,15 @@ function GroupsDrawer({ address, isConnected, lang, aiGateEligible, onEligibilit
     }
   }, [open, isConnected, fetchGroups])
 
+  // Auto-open and pre-fill join code from QR scan URL param
+  useEffect(() => {
+    if (autoJoinCode && isConnected && address) {
+      setOpen(true)
+      setView('join')
+      setJoinCode(autoJoinCode)
+    }
+  }, [autoJoinCode, isConnected, address])
+
   return (
     <Drawer open={open} onOpenChange={setOpen}>
       <DrawerTrigger asChild>
@@ -1798,7 +1809,10 @@ function GroupsDrawer({ address, isConnected, lang, aiGateEligible, onEligibilit
                       {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4 text-white/40" />}
                     </button>
                   </div>
-                  <p className="text-[10px] font-mono text-white/30 mt-2">Share this code with friends to start competing</p>
+                  <div className="flex justify-center mt-3 p-3 bg-white rounded">
+                    <QRCodeSVG value={`https://betwhisper.ai/predict?join=${newGroupCode}`} size={160} level="H" />
+                  </div>
+                  <p className="text-[10px] font-mono text-white/30 mt-2 text-center">Scan to join group</p>
                 </div>
               )}
 
@@ -1960,7 +1974,7 @@ function GroupsDrawer({ address, isConnected, lang, aiGateEligible, onEligibilit
                 </div>
               ) : (
                 <>
-                  {/* Invite Code */}
+                  {/* Invite Code + QR */}
                   <div className="border border-white/[0.08] bg-white/[0.04] px-3 py-2.5 mb-3">
                     <div className="flex items-center justify-between">
                       <div>
@@ -1974,6 +1988,10 @@ function GroupsDrawer({ address, isConnected, lang, aiGateEligible, onEligibilit
                         {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4 text-white/40" />}
                       </button>
                     </div>
+                    <div className="flex justify-center mt-3 p-3 bg-white rounded">
+                      <QRCodeSVG value={`https://betwhisper.ai/predict?join=${selectedGroup.invite_code}`} size={140} level="H" />
+                    </div>
+                    <p className="text-[10px] font-mono text-white/20 mt-1.5 text-center">Scan to join</p>
                   </div>
 
                   {/* AI Gate status */}
@@ -2109,6 +2127,18 @@ export default function PredictChat() {
     setLangState(selectedLang)
     setOnboarded(true)
   }
+
+  // Auto-join from QR scan URL param
+  const [autoJoinCode, setAutoJoinCode] = useState<string>('')
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const join = params.get('join')
+    if (join) {
+      setAutoJoinCode(join)
+      // Clean URL without reload
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+  }, [])
 
   // AI Gate state
   const [aiGateEligible, setAiGateEligible] = useState(false)
@@ -2795,6 +2825,7 @@ export default function PredictChat() {
                   lang={lang}
                   aiGateEligible={aiGateEligible}
                   onEligibilityChange={setAiGateEligible}
+                  autoJoinCode={autoJoinCode}
                 />
                 <button onClick={disconnect} className="p-2 border border-[--border-light] hover:border-white/30 transition-colors">
                   <LogOut className="w-3.5 h-3.5 text-white/40" />
