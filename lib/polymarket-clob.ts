@@ -181,17 +181,23 @@ export async function executeClobBet(params: {
 // Check USDC balance on Polygon
 export async function getUSDCBalance(): Promise<number> {
   const pk = process.env.POLYMARKET_PRIVATE_KEY
-  if (!pk) return 0
+  if (!pk) { console.log('[CLOB] No POLYMARKET_PRIVATE_KEY'); return 0 }
 
   try {
-    const provider = new JsonRpcProvider(POLYGON_RPC)
+    const rpc = POLYGON_RPC
+    console.log(`[CLOB] Checking balance via RPC: ${rpc}`)
+    const provider = new JsonRpcProvider(rpc)
     const wallet = new Wallet(pk, provider)
+    console.log(`[CLOB] Wallet: ${wallet.address}, USDC contract: ${USDC_POLYGON}`)
     const usdc = new Contract(USDC_POLYGON, [
       'function balanceOf(address) view returns (uint256)',
-    ], wallet)
+    ], provider)
     const balance = await usdc.balanceOf(wallet.address)
-    return parseFloat(balance.toString()) / 1e6  // USDC has 6 decimals
-  } catch {
+    const parsed = parseFloat(balance.toString()) / 1e6
+    console.log(`[CLOB] Balance raw: ${balance.toString()}, parsed: $${parsed}`)
+    return parsed
+  } catch (err) {
+    console.error('[CLOB] Balance check failed:', err)
     return 0
   }
 }
