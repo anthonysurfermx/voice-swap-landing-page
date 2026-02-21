@@ -2135,6 +2135,7 @@ export default function PredictChat() {
     const join = params.get('join')
     if (join) {
       setAutoJoinCode(join)
+      setInlineJoinCode(join.toUpperCase())
       // Clean URL without reload
       window.history.replaceState({}, '', window.location.pathname)
     }
@@ -2142,6 +2143,11 @@ export default function PredictChat() {
 
   // AI Gate state
   const [aiGateEligible, setAiGateEligible] = useState(false)
+  const [showUnlockToast, setShowUnlockToast] = useState(false)
+  const prevAiGateRef = useRef(false)
+  const [inlineJoinCode, setInlineJoinCode] = useState('')
+  const [inlineJoinLoading, setInlineJoinLoading] = useState(false)
+  const [inlineJoinResult, setInlineJoinResult] = useState<'success' | 'error' | null>(null)
   useEffect(() => {
     if (!address) return
     fetch(`/api/groups/check?wallet=${address}`)
@@ -2149,6 +2155,45 @@ export default function PredictChat() {
       .then(d => setAiGateEligible(d.eligible === true))
       .catch(() => setAiGateEligible(false))
   }, [address])
+
+  // Detect AI unlock transition (false -> true) and show toast
+  useEffect(() => {
+    if (aiGateEligible && !prevAiGateRef.current) {
+      setShowUnlockToast(true)
+      setTimeout(() => setShowUnlockToast(false), 5000)
+    }
+    prevAiGateRef.current = aiGateEligible
+  }, [aiGateEligible])
+
+  // Inline join group handler
+  const handleInlineJoin = useCallback(async () => {
+    if (!inlineJoinCode.trim() || !address || inlineJoinLoading) return
+    setInlineJoinLoading(true)
+    setInlineJoinResult(null)
+    try {
+      const res = await fetch(`/api/groups/${inlineJoinCode.trim()}/join`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wallet_address: address }),
+      })
+      if (res.ok) {
+        setInlineJoinResult('success')
+        setInlineJoinCode('')
+        // Re-check AI Gate eligibility
+        const checkRes = await fetch(`/api/groups/check?wallet=${address}`)
+        if (checkRes.ok) {
+          const checkData = await checkRes.json()
+          setAiGateEligible(checkData.eligible === true)
+        }
+      } else {
+        setInlineJoinResult('error')
+      }
+    } catch {
+      setInlineJoinResult('error')
+    } finally {
+      setInlineJoinLoading(false)
+    }
+  }, [inlineJoinCode, address, inlineJoinLoading])
 
   // Chat state
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -2844,6 +2889,58 @@ export default function PredictChat() {
           </div>
         </div>
       </header>
+
+      {/* Unlock Toast */}
+      {showUnlockToast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-top-4 fade-in duration-300">
+          <div className="border border-emerald-500/30 bg-emerald-500/10 backdrop-blur-sm px-5 py-3 flex items-center gap-3 shadow-lg shadow-emerald-500/10">
+            <Unlock className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+            <div>
+              <div className="text-[12px] font-bold text-emerald-400">
+                {lang === 'es' ? 'IA DESBLOQUEADA' : 'AI UNLOCKED'}
+              </div>
+              <div className="text-[10px] font-mono text-emerald-500/60">
+                {lang === 'es' ? '"Explicar con IA" ahora disponible' : '"Explain with AI" now available'}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Inline Join Banner (when connected but AI locked) */}
+      {isConnected && !aiGateEligible && (
+        <div className="border-b border-[#836EF9]/20 bg-[#836EF9]/[0.04] flex-shrink-0">
+          <div className="max-w-2xl mx-auto px-4 py-2.5 flex items-center gap-3">
+            <Lock className="w-3.5 h-3.5 text-[#836EF9] flex-shrink-0" />
+            <span className="text-[10px] font-mono text-[#836EF9] flex-shrink-0">
+              {lang === 'es' ? 'INGRESA CODIGO' : 'ENTER CODE'}
+            </span>
+            <input
+              type="text"
+              value={inlineJoinCode}
+              onChange={e => { setInlineJoinCode(e.target.value.toUpperCase()); setInlineJoinResult(null) }}
+              onKeyDown={e => { if (e.key === 'Enter') handleInlineJoin() }}
+              placeholder="BW-ABC123"
+              className="flex-1 bg-transparent border border-white/[0.08] px-3 py-1.5 text-[12px] font-mono text-white tracking-[1px] placeholder:text-white/15 outline-none focus:border-[#836EF9]/40 transition-colors"
+              maxLength={10}
+            />
+            <button
+              onClick={handleInlineJoin}
+              disabled={!inlineJoinCode.trim() || inlineJoinLoading}
+              className={`px-3 py-1.5 text-[11px] font-bold transition-colors ${
+                inlineJoinCode.trim() && !inlineJoinLoading
+                  ? 'bg-[#836EF9] text-white hover:bg-[#836EF9]/80'
+                  : 'bg-white/5 text-white/20 cursor-not-allowed'
+              }`}
+            >
+              {inlineJoinLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'JOIN'}
+            </button>
+            {inlineJoinResult === 'error' && (
+              <AlertTriangle className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto" ref={scrollRef}>
