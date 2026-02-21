@@ -197,6 +197,9 @@ export async function POST(request: NextRequest) {
       monadTxHash: monadTxHash || null,
       marketSlug,
       side,
+      tokenId: result.tokenId,
+      tickSize: result.tickSize,
+      negRisk: result.negRisk,
     })
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Unknown error'

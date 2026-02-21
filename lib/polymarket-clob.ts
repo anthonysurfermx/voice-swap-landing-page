@@ -20,6 +20,9 @@ export interface ClobBetResult {
   shares: number       // shares received
   amountUSD: number    // USDC spent
   explorerUrl: string  // polygonscan link
+  tokenId: string      // resolved token ID
+  tickSize: string     // tick size used
+  negRisk: boolean     // neg risk flag
 }
 
 export interface ClobTokenIds {
@@ -213,6 +216,9 @@ export async function executeClobBet(params: {
     explorerUrl: txHashes.length > 0
       ? `https://polygonscan.com/tx/${txHashes[0]}`
       : '',
+    tokenId: tokenID,
+    tickSize,
+    negRisk,
   }
 }
 

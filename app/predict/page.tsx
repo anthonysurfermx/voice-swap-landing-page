@@ -2307,7 +2307,7 @@ export default function PredictChat() {
     steps[1].detail = lang === 'es' ? 'Ejecutando orden...' : 'Executing order...'
     updateTimeline(steps)
 
-    let clobResult: { txHash: string; explorerUrl: string; source: string; shares: number; price: number; tokenId?: string } | null = null
+    let clobResult: { txHash: string; explorerUrl: string; source: string; shares: number; price: number; tokenId: string; tickSize: string; negRisk: boolean } | null = null
 
     if (resolvedConditionId) {
       try {
@@ -2332,6 +2332,9 @@ export default function PredictChat() {
             source: data.source,
             shares: data.shares,
             price: data.price,
+            tokenId: data.tokenId || '',
+            tickSize: data.tickSize || '0.01',
+            negRisk: data.negRisk || false,
           }
         } else {
           steps[1].status = 'error'
@@ -2375,6 +2378,7 @@ export default function PredictChat() {
         marketSlug: slug, side, amount, walletAddress: address || 'demo',
         txHash: clobResult.txHash, signalHash, source: clobResult.source, monadTxHash,
         conditionId: resolvedConditionId, shares: clobResult.shares, price: clobResult.price,
+        tokenId: clobResult.tokenId, tickSize: clobResult.tickSize, negRisk: clobResult.negRisk,
       }),
     }).catch(() => {})
 
