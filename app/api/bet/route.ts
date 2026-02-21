@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { MONAD_EXPLORER } from '@/lib/constants'
+import { POLYGON_EXPLORER } from '@/lib/constants'
 
 interface BetRecord {
   id: string
@@ -10,15 +10,17 @@ interface BetRecord {
   txHash: string
   signalHash: string
   timestamp: number
+  source: string
+  monadTxHash: string
 }
 
 // In-memory store for hackathon demo
 const bets: BetRecord[] = []
 
 export async function POST(request: NextRequest) {
-  const { marketSlug, side, amount, walletAddress, txHash, signalHash } = await request.json()
+  const { marketSlug, side, amount, walletAddress, txHash, signalHash, source, monadTxHash } = await request.json()
 
-  if (!marketSlug || !side || !amount || !walletAddress || !txHash) {
+  if (!marketSlug || !side || !amount || !txHash) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
 
@@ -27,10 +29,12 @@ export async function POST(request: NextRequest) {
     marketSlug,
     side,
     amount,
-    walletAddress,
+    walletAddress: walletAddress || 'demo',
     txHash,
     signalHash: signalHash || '',
     timestamp: Date.now(),
+    source: source || 'monad',
+    monadTxHash: monadTxHash || '',
   }
 
   bets.push(bet)
@@ -38,7 +42,7 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({
     success: true,
     bet,
-    explorerUrl: `${MONAD_EXPLORER}/tx/${txHash}`,
+    explorerUrl: `${POLYGON_EXPLORER}/tx/${txHash}`,
   })
 }
 

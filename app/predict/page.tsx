@@ -63,8 +63,8 @@ type ChatAttachment =
   | { type: 'betAmountInput'; market: MarketInfo; analysis: DeepAnalysisResult }
   | { type: 'successProbability'; probability: ProbabilityResult; market: MarketInfo; analysis: DeepAnalysisResult; signalHash: string }
   | { type: 'betChoice'; slug: string; yesPrice: number; noPrice: number }
-  | { type: 'betPrompt'; side: 'Yes' | 'No'; slug: string; signalHash: string }
-  | { type: 'betConfirmed'; side: string; amount: string; txHash: string }
+  | { type: 'betPrompt'; side: 'Yes' | 'No'; slug: string; signalHash: string; conditionId: string }
+  | { type: 'betConfirmed'; side: string; amount: string; txHash: string; explorerUrl?: string; source?: string; shares?: number; price?: number }
   | { type: 'loading'; text: string }
   | { type: 'error'; text: string }
   | { type: 'portfolio'; data: PortfolioData }
@@ -92,7 +92,7 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     noWhales: "No tracked whales in this market. You can still bet.",
     howMuch: "How much?",
     placingBet: "Placing {amount} MON on {side}...",
-    betConfirmed: "Bet confirmed on Monad.",
+    betConfirmed: "Bet confirmed on Polymarket.",
     connectWallet: "Connect your wallet to see your portfolio.",
     loadingPortfolio: "Loading portfolio...",
     hereIsPortfolio: "Here is your portfolio.",
@@ -145,7 +145,7 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     noWhales: "No hay ballenas rastreadas en este mercado. Aun puedes apostar.",
     howMuch: "Cuanto quieres apostar?",
     placingBet: "Apostando {amount} MON en {side}...",
-    betConfirmed: "Apuesta confirmada en Monad.",
+    betConfirmed: "Apuesta confirmada en Polymarket.",
     connectWallet: "Conecta tu wallet para ver tu portafolio.",
     loadingPortfolio: "Cargando portafolio...",
     hereIsPortfolio: "Aqui esta tu portafolio.",
@@ -198,7 +198,7 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     noWhales: "Sem baleias rastreadas neste mercado. Voce ainda pode apostar.",
     howMuch: "Quanto quer apostar?",
     placingBet: "Apostando {amount} MON em {side}...",
-    betConfirmed: "Aposta confirmada na Monad.",
+    betConfirmed: "Aposta confirmada na Polymarket.",
     connectWallet: "Conecte sua wallet para ver seu portfolio.",
     loadingPortfolio: "Carregando portfolio...",
     hereIsPortfolio: "Aqui esta seu portfolio.",
@@ -874,8 +874,8 @@ function BetAmountInputAttachment({ market, analysis, lang, onCalculate }: {
 function SuccessProbabilityAttachment({ probability, market, signalHash, lang, onSmartBet, onManualBet }: {
   probability: ProbabilityResult; market: MarketInfo
   analysis: DeepAnalysisResult; signalHash: string; lang: Lang
-  onSmartBet: (side: 'Yes' | 'No', slug: string, signalHash: string, amount: string) => void
-  onManualBet: (side: 'Yes' | 'No', slug: string, signalHash: string) => void
+  onSmartBet: (side: 'Yes' | 'No', slug: string, signalHash: string, amount: string, conditionId?: string) => void
+  onManualBet: (side: 'Yes' | 'No', slug: string, signalHash: string, conditionId?: string) => void
 }) {
   const hasSide = probability.recommendedSide !== null
   const side = probability.recommendedSide || 'Yes'
@@ -936,7 +936,7 @@ function SuccessProbabilityAttachment({ probability, market, signalHash, lang, o
           </div>
 
           {/* Smart Money button */}
-          <button onClick={() => onSmartBet(side, market.slug, signalHash, String(probability.smartMoneySize))}
+          <button onClick={() => onSmartBet(side, market.slug, signalHash, String(probability.smartMoneySize), market.conditionId)}
             className={`w-full py-3 text-[13px] font-semibold font-mono border transition-colors active:scale-[0.97] mb-2 ${
               isYes ? 'border-emerald-500/40 text-emerald-500 bg-emerald-500/[0.05] hover:bg-emerald-500/10'
                     : 'border-red-400/40 text-red-400 bg-red-400/[0.05] hover:bg-red-400/10'
@@ -949,7 +949,7 @@ function SuccessProbabilityAttachment({ probability, market, signalHash, lang, o
 
           {/* Full amount button */}
           {probability.betAmount > 0 && probability.smartMoneySize < probability.betAmount && (
-            <button onClick={() => onSmartBet(side, market.slug, signalHash, String(probability.betAmount))}
+            <button onClick={() => onSmartBet(side, market.slug, signalHash, String(probability.betAmount), market.conditionId)}
               className={`w-full py-2 text-[11px] font-semibold font-mono border transition-colors active:scale-[0.97] mb-3 ${
                 isYes ? 'border-emerald-500/15 text-emerald-500/50 hover:bg-emerald-500/10'
                       : 'border-red-400/15 text-red-400/50 hover:bg-red-400/10'
@@ -962,11 +962,11 @@ function SuccessProbabilityAttachment({ probability, market, signalHash, lang, o
         <div className="px-4 py-3 border-t border-white/[0.06]">
           <p className="text-[11px] text-amber-400/70 font-mono mb-3">{t(lang, 'noEdge')}</p>
           <div className="flex items-center gap-2">
-            <button onClick={() => onManualBet('Yes', market.slug, signalHash)}
+            <button onClick={() => onManualBet('Yes', market.slug, signalHash, market.conditionId)}
               className="flex-1 py-2 text-[12px] font-semibold border border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10 transition-colors active:scale-[0.97]">
               BET YES
             </button>
-            <button onClick={() => onManualBet('No', market.slug, signalHash)}
+            <button onClick={() => onManualBet('No', market.slug, signalHash, market.conditionId)}
               className="flex-1 py-2 text-[12px] font-semibold border border-red-400/30 text-red-400 hover:bg-red-400/10 transition-colors active:scale-[0.97]">
               BET NO
             </button>
@@ -979,18 +979,29 @@ function SuccessProbabilityAttachment({ probability, market, signalHash, lang, o
 
 // ─── Chat Attachment: Bet Confirmed ───
 
-function BetConfirmedAttachment({ side, amount, txHash }: { side: string; amount: string; txHash: string }) {
+function BetConfirmedAttachment({ side, amount, txHash, explorerUrl, source, shares, price }: {
+  side: string; amount: string; txHash: string; explorerUrl?: string; source?: string; shares?: number; price?: number
+}) {
+  const isReal = source === 'polymarket' || source === 'polymarket-mock'
+  const linkUrl = explorerUrl || `${MONAD_EXPLORER}/tx/${txHash}`
   return (
     <div className="mt-2 border border-emerald-500/20 bg-emerald-500/[0.05] px-4 py-3">
       <div className="flex items-center gap-2 mb-2">
         <CheckCircle className="w-4 h-4 text-emerald-500" />
         <span className="text-[11px] font-bold font-mono text-emerald-500 tracking-[1px]">BET PLACED</span>
+        {isReal && <span className="text-[9px] font-mono text-emerald-500/50 px-1.5 py-0.5 border border-emerald-500/20">POLYMARKET</span>}
       </div>
       <div className="flex items-center gap-3 mb-2">
         <span className={`text-[13px] font-bold font-mono ${side === 'Yes' ? 'text-emerald-500' : 'text-red-400'}`}>{side.toUpperCase()}</span>
-        <span className="text-[13px] font-medium font-mono text-white">{amount} MON</span>
+        <span className="text-[13px] font-medium font-mono text-white">${amount} USD</span>
       </div>
-      <a href={`${MONAD_EXPLORER}/tx/${txHash}`} target="_blank" rel="noopener noreferrer"
+      {isReal && price && shares && (
+        <div className="flex items-center gap-4 mb-2 text-[10px] font-mono text-white/30">
+          <span>Price: {price.toFixed(2)}</span>
+          <span>Shares: {shares.toFixed(1)}</span>
+        </div>
+      )}
+      <a href={linkUrl} target="_blank" rel="noopener noreferrer"
         className="text-[10px] font-mono text-white/30 hover:text-white/50 transition-colors flex items-center gap-1">
         {txHash.slice(0, 18)}... <ExternalLink className="w-3 h-3" />
       </a>
@@ -1000,25 +1011,25 @@ function BetConfirmedAttachment({ side, amount, txHash }: { side: string; amount
 
 // ─── Chat Attachment: Bet Prompt ───
 
-function BetPromptAttachment({ side, slug, signalHash, lang, onConfirm }: {
-  side: 'Yes' | 'No'; slug: string; signalHash: string; lang: Lang
-  onConfirm: (side: 'Yes' | 'No', slug: string, signalHash: string, amount: string) => void
+function BetPromptAttachment({ side, slug, signalHash, conditionId, lang, onConfirm }: {
+  side: 'Yes' | 'No'; slug: string; signalHash: string; conditionId: string; lang: Lang
+  onConfirm: (side: 'Yes' | 'No', slug: string, signalHash: string, amount: string, conditionId?: string) => void
 }) {
-  const amounts = ['0.01', '0.05', '0.1', '0.5']
+  const amounts = ['1', '5', '10', '25']
   const isYes = side === 'Yes'
   return (
     <div className={`mt-2 border px-4 py-3 ${isYes ? 'border-emerald-500/20 bg-emerald-500/[0.03]' : 'border-red-400/20 bg-red-400/[0.03]'}`}>
       <div className="flex items-center gap-2">
         {amounts.map(amt => (
-          <button key={amt} onClick={() => onConfirm(side, slug, signalHash, amt)}
+          <button key={amt} onClick={() => onConfirm(side, slug, signalHash, amt, conditionId)}
             className={`flex-1 py-2 text-[12px] font-semibold font-mono border transition-colors active:scale-[0.97] ${
               isYes ? 'border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10' : 'border-red-400/30 text-red-400 hover:bg-red-400/10'
             }`}>
-            {amt}
+            ${amt}
           </button>
         ))}
       </div>
-      <div className="text-[10px] text-white/20 mt-2 font-mono">{t(lang, 'monOnMonad')}</div>
+      <div className="text-[10px] text-white/20 mt-2 font-mono">USD via Polymarket CLOB</div>
     </div>
   )
 }
@@ -1187,36 +1198,94 @@ export default function PredictChat() {
     }
   }, [addMessage, removeMessage, lang])
 
-  const handleBetPrompt = useCallback((side: 'Yes' | 'No', slug: string, signalHash: string) => {
+  const handleBetPrompt = useCallback((side: 'Yes' | 'No', slug: string, signalHash: string, conditionId?: string) => {
     addMessage('user', `${side} on this market`)
-    addMessage('assistant', t(lang, 'howMuch'), { type: 'betPrompt', side, slug, signalHash })
+    addMessage('assistant', t(lang, 'howMuch'), { type: 'betPrompt', side, slug, signalHash, conditionId: conditionId || '' })
   }, [addMessage, lang])
 
-  const handleBet = useCallback(async (side: 'Yes' | 'No', slug: string, signalHash: string, amount: string) => {
-    addMessage('user', `${amount} MON on ${side}`)
-    const loadingId = addMessage('assistant', '', { type: 'loading', text: t(lang, 'placingBet', { amount, side }) })
+  const handleBet = useCallback(async (side: 'Yes' | 'No', slug: string, signalHash: string, amount: string, conditionId?: string) => {
+    addMessage('user', `$${amount} on ${side}`)
 
-    let txHash: string | null = null
+    // Step 1: Register intent on Monad
+    let loadingId = addMessage('assistant', '', { type: 'loading', text: lang === 'es' ? 'Registrando intento en Monad...' : 'Registering intent on Monad...' })
+    let monadTxHash: string | null = null
     if (isConnected && signer) {
       try {
-        const result = await executeBet(signer, { marketSlug: slug, side, amount, signalHash })
-        txHash = result.txHash
-      } catch { /* fall through to demo */ }
+        const result = await executeBet(signer, { marketSlug: slug, side, amount: '0.001', signalHash })
+        monadTxHash = result.txHash
+      } catch { /* continue without monad intent */ }
     }
-    if (!txHash) {
-      await new Promise(r => setTimeout(r, 1500))
-      txHash = `0x${Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`
+    if (!monadTxHash) {
+      await new Promise(r => setTimeout(r, 800))
+      monadTxHash = `0x${Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`
+    }
+    removeMessage(loadingId)
+
+    // Step 2: Execute on Polymarket CLOB
+    loadingId = addMessage('assistant', '', { type: 'loading', text: lang === 'es' ? 'Ejecutando en Polymarket CLOB...' : 'Executing on Polymarket CLOB...' })
+
+    // Resolve conditionId from chat history if not passed directly
+    let resolvedConditionId = conditionId
+    if (!resolvedConditionId) {
+      const marketMsg = [...messages].reverse().find(m =>
+        m.attachment?.type === 'successProbability' || m.attachment?.type === 'deepAnalysis' || m.attachment?.type === 'marketPreview'
+      )
+      if (marketMsg?.attachment && 'market' in marketMsg.attachment) {
+        resolvedConditionId = marketMsg.attachment.market.conditionId
+      }
     }
 
+    let clobResult: { txHash: string; explorerUrl: string; source: string; shares: number; price: number } | null = null
+
+    if (resolvedConditionId) {
+      try {
+        const res = await fetch('/api/bet/execute', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            conditionId: resolvedConditionId,
+            outcomeIndex: side === 'Yes' ? 0 : 1,
+            amountUSD: parseFloat(amount),
+            signalHash,
+            marketSlug: slug,
+            monadTxHash,
+          }),
+        })
+        if (res.ok) {
+          const data = await res.json()
+          clobResult = {
+            txHash: data.polygonTxHash || data.txHash,
+            explorerUrl: data.explorerUrl,
+            source: data.source,
+            shares: data.shares,
+            price: data.price,
+          }
+        }
+      } catch { /* fall through to demo */ }
+    }
+
+    if (!clobResult) {
+      await new Promise(r => setTimeout(r, 1200))
+      const mockHash = `0x${Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`
+      clobResult = { txHash: mockHash, explorerUrl: `https://polygonscan.com/tx/${mockHash}`, source: 'demo', shares: parseFloat(amount) / 0.5, price: 0.5 }
+    }
+
+    // Record bet
     await fetch('/api/bet', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ marketSlug: slug, side, amount, walletAddress: address || 'demo', txHash, signalHash }),
+      body: JSON.stringify({ marketSlug: slug, side, amount, walletAddress: address || 'demo', txHash: clobResult.txHash, signalHash, source: clobResult.source, monadTxHash }),
     }).catch(() => {})
 
     removeMessage(loadingId)
-    addMessage('assistant', t(lang, 'betConfirmed'), { type: 'betConfirmed', side, amount, txHash })
-  }, [isConnected, signer, address, addMessage, removeMessage, lang])
+
+    // Step 3: Confirmed
+    addMessage('assistant', lang === 'es' ? 'Apuesta confirmada en Polymarket.' : 'Bet confirmed on Polymarket.', {
+      type: 'betConfirmed', side, amount, txHash: clobResult.txHash,
+      explorerUrl: clobResult.explorerUrl, source: clobResult.source,
+      shares: clobResult.shares, price: clobResult.price,
+    })
+  }, [isConnected, signer, address, messages, addMessage, removeMessage, lang])
 
   const showPortfolio = useCallback(async () => {
     if (!isConnected || !address) {
@@ -1250,13 +1319,13 @@ export default function PredictChat() {
         if (analysisMsg?.attachment?.type === 'successProbability') {
           const { market, signalHash } = analysisMsg.attachment
           const side = intent.side || analysisMsg.attachment.probability.recommendedSide || 'Yes'
-          const amount = intent.amount?.toString() || '0.01'
-          await handleBet(side, market.slug, signalHash, amount)
+          const amount = intent.amount?.toString() || '1'
+          await handleBet(side, market.slug, signalHash, amount, market.conditionId)
         } else if (analysisMsg?.attachment?.type === 'deepAnalysis') {
           const { market, analysis } = analysisMsg.attachment
           const side = intent.side || 'Yes'
-          const amount = intent.amount?.toString() || '0.01'
-          await handleBet(side, market.slug, analysis.signalHash, amount)
+          const amount = intent.amount?.toString() || '1'
+          await handleBet(side, market.slug, analysis.signalHash, amount, market.conditionId)
         } else {
           addMessage('assistant', t(lang, 'analyzeFirst'))
         }
@@ -1385,8 +1454,8 @@ export default function PredictChat() {
   }, [addMessage, lang])
 
   // Step 4: Smart Money instant bet (from SuccessProbabilityAttachment)
-  const handleSmartBet = useCallback(async (side: 'Yes' | 'No', slug: string, signalHash: string, amount: string) => {
-    await handleBet(side, slug, signalHash, amount)
+  const handleSmartBet = useCallback(async (side: 'Yes' | 'No', slug: string, signalHash: string, amount: string, conditionId?: string) => {
+    await handleBet(side, slug, signalHash, amount, conditionId)
   }, [handleBet])
 
   // Initial greeting
@@ -1492,10 +1561,12 @@ export default function PredictChat() {
                   )}
                   {msg.attachment.type === 'betPrompt' && (
                     <BetPromptAttachment side={msg.attachment.side} slug={msg.attachment.slug}
-                      signalHash={msg.attachment.signalHash} lang={lang} onConfirm={handleBet} />
+                      signalHash={msg.attachment.signalHash} conditionId={msg.attachment.conditionId} lang={lang} onConfirm={handleBet} />
                   )}
                   {msg.attachment.type === 'betConfirmed' && (
-                    <BetConfirmedAttachment side={msg.attachment.side} amount={msg.attachment.amount} txHash={msg.attachment.txHash} />
+                    <BetConfirmedAttachment side={msg.attachment.side} amount={msg.attachment.amount} txHash={msg.attachment.txHash}
+                      explorerUrl={msg.attachment.explorerUrl} source={msg.attachment.source}
+                      shares={msg.attachment.shares} price={msg.attachment.price} />
                   )}
                   {msg.attachment.type === 'portfolio' && (
                     <PortfolioAttachment data={msg.attachment.data} />
