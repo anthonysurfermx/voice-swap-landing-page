@@ -1,8 +1,9 @@
 // On-chain bet execution on Monad
-// Uses native MON transfer with signal hash in calldata for data provenance
+// Self-bet pattern: MON transfer to own wallet with bet metadata in calldata
+// The calldata proves the bet was informed by Agent Radar analysis
 
 import { JsonRpcSigner, parseEther, hexlify, toUtf8Bytes } from 'ethers'
-import { BETWHISPER_POOL_ADDRESS, MONAD_EXPLORER } from './constants'
+import { MONAD_EXPLORER } from './constants'
 
 export interface BetParams {
   marketSlug: string
@@ -23,8 +24,10 @@ export async function executeBet(
 ): Promise<BetResult> {
   const { marketSlug, side, amount, signalHash } = params
 
+  // Self-bet: send to own address (bet metadata lives in calldata)
+  const selfAddress = await signer.getAddress()
+
   // Encode bet metadata as calldata for on-chain data provenance
-  // This proves the bet was informed by the whale radar signal
   const metadata = JSON.stringify({
     protocol: 'betwhisper',
     market: marketSlug,
@@ -34,7 +37,7 @@ export async function executeBet(
   })
 
   const tx = await signer.sendTransaction({
-    to: BETWHISPER_POOL_ADDRESS,
+    to: selfAddress,
     value: parseEther(amount),
     data: hexlify(toUtf8Bytes(metadata)),
   })

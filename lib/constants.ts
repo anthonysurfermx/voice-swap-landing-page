@@ -1,8 +1,5 @@
 // VoiceBet constants
 
-// Demo wallet to receive "bets" (Anthony's wallet)
-export const BETWHISPER_POOL_ADDRESS = '0x0000000000000000000000000000000000000000' // TODO: set before demo
-
 // Monad
 export const MONAD_CHAIN_ID = 143
 export const MONAD_RPC = 'https://rpc.monad.xyz'
