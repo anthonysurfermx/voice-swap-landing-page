@@ -78,6 +78,12 @@ type ChatAttachment =
   | { type: 'balanceView'; positions: BalancePosition[]; totalValue: number; totalPnl: number }
   | { type: 'sellTimeline'; steps: BetTimelineStep[]; marketSlug: string }
   | { type: 'contextInsight'; insight: string; keyStats: string[] }
+  | { type: 'transactionHistory'; orders: OrderHistory[] }
+
+interface OrderHistory {
+  id: number; marketSlug: string; side: string; amountUSD: number; shares: number; fillPrice: number
+  status: string; monadTxHash: string; polygonTxHash: string; monPaid: string; createdAt: string
+}
 
 interface BalancePosition {
   id: number; marketSlug: string; side: string; shares: number; avgPrice: number
@@ -193,6 +199,9 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     sell: "SELL",
     selling: "Selling...",
     contextStats: "CONTEXT / STATS",
+    transactionHistory: "TRANSACTION HISTORY",
+    noTransactions: "No transactions yet",
+    viewHistory: "HISTORY",
     failedSearch: "Failed to search markets.",
     failedAnalysis: "Failed to analyze market.",
     failedBet: "Failed to place bet. Please try again.",
@@ -260,6 +269,9 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     sell: "VENDER",
     selling: "Vendiendo...",
     contextStats: "CONTEXTO / ESTADISTICAS",
+    transactionHistory: "HISTORIAL DE TRANSACCIONES",
+    noTransactions: "Sin transacciones aun",
+    viewHistory: "HISTORIAL",
     failedSearch: "Error al buscar mercados.",
     failedAnalysis: "Error al analizar el mercado.",
     failedBet: "Error al apostar. Intenta de nuevo.",
@@ -327,6 +339,9 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     sell: "VENDER",
     selling: "Vendendo...",
     contextStats: "CONTEXTO / ESTATISTICAS",
+    transactionHistory: "HISTORICO DE TRANSACOES",
+    noTransactions: "Sem transacoes ainda",
+    viewHistory: "HISTORICO",
     failedSearch: "Erro ao buscar mercados.",
     failedAnalysis: "Erro ao analisar o mercado.",
     failedBet: "Erro ao apostar. Tente novamente.",
@@ -1343,15 +1358,18 @@ function PinVerifyAttachment({ wallet, onSuccess, lang }: { wallet: string; onSu
 
 // ─── Chat Attachment: Balance View ───
 
-function BalanceViewAttachment({ positions, totalValue, totalPnl, onSell, lang }: {
+function BalanceViewAttachment({ positions, totalValue, totalPnl, onSell, onHistory, lang }: {
   positions: BalancePosition[]; totalValue: number; totalPnl: number
-  onSell: (pos: BalancePosition) => void; lang: Lang
+  onSell: (pos: BalancePosition) => void; onHistory: () => void; lang: Lang
 }) {
   return (
     <div className="mt-2 border border-white/[0.10] bg-white/[0.04]">
       <div className="px-4 py-2 border-b border-white/[0.06] flex items-center justify-between">
         <span className="text-[9px] font-bold font-mono text-white/30 tracking-[1.5px]">{t(lang, 'yourPositions')}</span>
-        <span className="text-[10px] font-mono text-white/20">{positions.length} open</span>
+        <button onClick={onHistory}
+          className="text-[9px] font-bold font-mono text-white/30 tracking-[1px] hover:text-white/50 transition-colors">
+          {t(lang, 'viewHistory')}
+        </button>
       </div>
       <div className="grid grid-cols-2 gap-px bg-white/[0.06]">
         <div className="bg-black px-4 py-3">
@@ -1463,6 +1481,83 @@ function ContextInsightAttachment({ insight, keyStats, lang }: { insight: string
             </div>
           ))}
         </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Chat Attachment: Transaction History ───
+
+function timeAgo(dateStr: string, lang: Lang): string {
+  const diff = Date.now() - new Date(dateStr).getTime()
+  const mins = Math.floor(diff / 60_000)
+  if (mins < 1) return lang === 'es' ? 'ahora' : lang === 'pt' ? 'agora' : 'now'
+  if (mins < 60) return `${mins}m`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h`
+  const days = Math.floor(hrs / 24)
+  return `${days}d`
+}
+
+function TransactionHistoryAttachment({ orders, lang }: { orders: OrderHistory[]; lang: Lang }) {
+  return (
+    <div className="mt-2 border border-white/[0.10] bg-white/[0.04]">
+      <div className="px-4 py-2 border-b border-white/[0.06] flex items-center justify-between">
+        <span className="text-[9px] font-bold font-mono text-white/30 tracking-[1.5px]">{t(lang, 'transactionHistory')}</span>
+        <span className="text-[10px] font-mono text-white/20">{orders.length} txs</span>
+      </div>
+      {orders.length > 0 ? (
+        <div className="divide-y divide-white/[0.06]">
+          {orders.map(order => (
+            <div key={order.id} className="px-4 py-3">
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="flex-1 min-w-0">
+                  <div className="text-[12px] text-white/70 truncate pr-2">{order.marketSlug}</div>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className={`text-[10px] font-bold font-mono ${order.side === 'Yes' ? 'text-emerald-500' : 'text-red-400'}`}>
+                      {order.side.toUpperCase()}
+                    </span>
+                    <span className="text-[10px] font-mono text-white/20">
+                      ${order.amountUSD.toFixed(2)} → {order.shares.toFixed(1)} @ ${order.fillPrice.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex flex-col items-end gap-1">
+                  <span className={`text-[9px] font-bold font-mono px-1.5 py-0.5 ${
+                    order.status === 'success' ? 'text-emerald-400 bg-emerald-500/10' :
+                    order.status === 'pending' ? 'text-amber-400 bg-amber-500/10' :
+                    'text-red-400 bg-red-500/10'
+                  }`}>
+                    {order.status === 'success' ? (lang === 'es' ? 'EXITOSO' : 'SUCCESS') :
+                     order.status === 'pending' ? 'PENDING' :
+                     (lang === 'es' ? 'FALLIDO' : 'FAILED')}
+                  </span>
+                  <span className="text-[9px] font-mono text-white/15">{timeAgo(order.createdAt, lang)}</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 mt-1">
+                {order.monadTxHash && (
+                  <a href={`https://monadscan.com/tx/${order.monadTxHash}`} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-[9px] font-mono text-purple-400/60 hover:text-purple-400 transition-colors">
+                    <span>MON</span>
+                    <span className="text-white/20">{order.monadTxHash.slice(0, 6)}...{order.monadTxHash.slice(-4)}</span>
+                    <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                  </a>
+                )}
+                {order.polygonTxHash && (
+                  <a href={`https://polygonscan.com/tx/${order.polygonTxHash}`} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-[9px] font-mono text-violet-400/60 hover:text-violet-400 transition-colors">
+                    <span>POLY</span>
+                    <span className="text-white/20">{order.polygonTxHash.slice(0, 6)}...{order.polygonTxHash.slice(-4)}</span>
+                    <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                  </a>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="px-4 py-6 text-center text-[12px] font-mono text-white/20">{t(lang, 'noTransactions')}</div>
       )}
     </div>
   )
@@ -2321,6 +2416,48 @@ export default function PredictChat() {
     }
   }, [isConnected, address, pinToken, addMessage, removeMessage, lang])
 
+  const showHistory = useCallback(async () => {
+    if (!isConnected || !address) {
+      addMessage('assistant', lang === 'es' ? 'Conecta tu wallet primero.' : 'Connect your wallet first.')
+      return
+    }
+
+    if (pinToken) {
+      const loadingId = addMessage('assistant', '', { type: 'loading', text: lang === 'es' ? 'Cargando historial...' : 'Loading history...' })
+      try {
+        const res = await fetch(`/api/user/history?wallet=${address.toLowerCase()}`, {
+          headers: { Authorization: `Bearer ${pinToken}` },
+        })
+        removeMessage(loadingId)
+        if (res.status === 401) {
+          setPinToken(null)
+          addMessage('assistant', lang === 'es' ? 'Sesion expirada. Ingresa tu PIN.' : 'Session expired. Enter your PIN.', { type: 'pinVerify', wallet: address.toLowerCase() })
+          return
+        }
+        if (!res.ok) throw new Error('API error')
+        const data = await res.json()
+        addMessage('assistant', '', { type: 'transactionHistory', orders: data.orders })
+      } catch {
+        removeMessage(loadingId)
+        addMessage('assistant', '', { type: 'error', text: lang === 'es' ? 'Error cargando historial' : 'Failed to load history' })
+      }
+      return
+    }
+
+    // No token yet, need PIN
+    try {
+      const checkRes = await fetch(`/api/user/pin/check?wallet=${address.toLowerCase()}`)
+      const checkData = await checkRes.json()
+      if (checkData.hasPin) {
+        addMessage('assistant', lang === 'es' ? 'Ingresa tu PIN para ver tu historial.' : 'Enter your PIN to view your history.', { type: 'pinVerify', wallet: address.toLowerCase() })
+      } else {
+        addMessage('assistant', lang === 'es' ? 'Primero crea un PIN de 4 digitos para proteger tu cuenta.' : 'First, create a 4-digit PIN to secure your account.', { type: 'pinSetup', wallet: address.toLowerCase() })
+      }
+    } catch {
+      addMessage('assistant', '', { type: 'error', text: 'Network error' })
+    }
+  }, [isConnected, address, pinToken, addMessage, removeMessage, lang])
+
   // Handle PIN verification success
   const handlePinSuccess = useCallback(async (token: string) => {
     setPinToken(token)
@@ -2464,6 +2601,9 @@ export default function PredictChat() {
       case 'BALANCE':
         await showBalance()
         break
+      case 'HISTORY':
+        await showHistory()
+        break
       case 'HELP':
         addMessage('assistant', t(lang, 'helpText'))
         break
@@ -2486,7 +2626,7 @@ export default function PredictChat() {
         }
       }
     }
-  }, [messages, searchMarkets, handleBet, showPortfolio, showBalance, fetchContext, addMessage, lang])
+  }, [messages, searchMarkets, handleBet, showPortfolio, showBalance, showHistory, fetchContext, addMessage, lang])
 
   const sendMessage = useCallback(async () => {
     const text = inputText.trim()
@@ -2742,13 +2882,16 @@ export default function PredictChat() {
                   )}
                   {msg.attachment.type === 'balanceView' && (
                     <BalanceViewAttachment positions={msg.attachment.positions} totalValue={msg.attachment.totalValue}
-                      totalPnl={msg.attachment.totalPnl} onSell={handleSell} lang={lang} />
+                      totalPnl={msg.attachment.totalPnl} onSell={handleSell} onHistory={showHistory} lang={lang} />
                   )}
                   {msg.attachment.type === 'sellTimeline' && (
                     <SellTimelineAttachment steps={msg.attachment.steps} marketSlug={msg.attachment.marketSlug} />
                   )}
                   {msg.attachment.type === 'contextInsight' && (
                     <ContextInsightAttachment insight={msg.attachment.insight} keyStats={msg.attachment.keyStats} lang={lang} />
+                  )}
+                  {msg.attachment.type === 'transactionHistory' && (
+                    <TransactionHistoryAttachment orders={msg.attachment.orders} lang={lang} />
                   )}
                 </div>
               )}

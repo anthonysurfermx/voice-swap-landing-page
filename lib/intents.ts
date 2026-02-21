@@ -1,6 +1,6 @@
 // Bilingual intent parser (EN/ES/PT) with synonym matching
 
-export type IntentType = 'SEARCH_MARKET' | 'PLACE_BET' | 'TRENDING' | 'BALANCE' | 'HELP' | 'UNKNOWN'
+export type IntentType = 'SEARCH_MARKET' | 'PLACE_BET' | 'TRENDING' | 'BALANCE' | 'HISTORY' | 'HELP' | 'UNKNOWN'
 
 export interface ParsedIntent {
   type: IntentType
@@ -17,6 +17,7 @@ const NO_WORDS = ['no', 'nah', 'nope', 'en contra', 'bear', 'bearish', 'against'
 const TRENDING_WORDS = ['trending', 'hot', 'popular', 'top', 'tendencia', 'populares', 'caliente']
 const SEARCH_WORDS = ['odds', 'show', 'what about', 'que hay', 'como esta', 'cómo está', 'search', 'find', 'busca', 'muestra', 'probabilidades']
 const BALANCE_WORDS = ['balance', 'saldo', 'portfolio', 'portafolio', 'mis posiciones', 'my positions', 'mis apuestas', 'my bets', 'positions']
+const HISTORY_WORDS = ['history', 'historial', 'transacciones', 'transactions', 'mis ordenes', 'my orders', 'orders', 'historial de transacciones', 'transaction history']
 const HELP_WORDS = ['help', 'ayuda', 'ajuda']
 
 // Patterns that look like bets but are actually topic searches
@@ -79,6 +80,11 @@ export function parseIntent(rawText: string): ParsedIntent {
   // Check balance/portfolio (highest priority, before search fallback)
   if (containsAny(text, BALANCE_WORDS)) {
     return { type: 'BALANCE', raw: rawText }
+  }
+
+  // Check history/transactions
+  if (containsAny(text, HISTORY_WORDS)) {
+    return { type: 'HISTORY', raw: rawText }
   }
 
   // Check help
