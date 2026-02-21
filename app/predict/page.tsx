@@ -2461,13 +2461,15 @@ export default function PredictChat() {
       case 'SEARCH_MARKET':
         await searchMarkets(intent.query || text)
         break
+      case 'BALANCE':
+        await showBalance()
+        break
+      case 'HELP':
+        addMessage('assistant', t(lang, 'helpText'))
+        break
       default: {
         const lower = text.toLowerCase()
-        if (lower.includes('balance') || lower.includes('saldo') || lower.includes('mis posiciones') || lower.includes('my positions')) {
-          await showBalance()
-        } else if (lower.includes('portfolio') || lower.includes('positions') || lower.includes('mis apuestas') || lower.includes('portafolio')) {
-          await showBalance()
-        } else if (lower.includes('stats') || lower.includes('estadisticas') || lower.includes('contexto') || lower.includes('context')) {
+        if (lower.includes('stats') || lower.includes('estadisticas') || lower.includes('contexto') || lower.includes('context')) {
           // Find the last analyzed market
           const analysisMsg = [...messages].reverse().find(m =>
             m.attachment?.type === 'deepAnalysis' || m.attachment?.type === 'marketPreview'
@@ -2478,8 +2480,6 @@ export default function PredictChat() {
           } else {
             addMessage('assistant', lang === 'es' ? 'Primero analiza un mercado.' : 'Analyze a market first.')
           }
-        } else if (lower.includes('help') || lower.includes('ayuda') || lower.includes('ajuda')) {
-          addMessage('assistant', t(lang, 'helpText'))
         } else {
           // Guided flow: treat as a topic search
           await searchMarkets(text)

@@ -1,6 +1,6 @@
 // Bilingual intent parser (EN/ES/PT) with synonym matching
 
-export type IntentType = 'SEARCH_MARKET' | 'PLACE_BET' | 'TRENDING' | 'UNKNOWN'
+export type IntentType = 'SEARCH_MARKET' | 'PLACE_BET' | 'TRENDING' | 'BALANCE' | 'HELP' | 'UNKNOWN'
 
 export interface ParsedIntent {
   type: IntentType
@@ -16,6 +16,8 @@ const YES_WORDS = ['yes', 'si', 'sí', 'yeah', 'yep', 'a favor', 'bull', 'bullis
 const NO_WORDS = ['no', 'nah', 'nope', 'en contra', 'bear', 'bearish', 'against']
 const TRENDING_WORDS = ['trending', 'hot', 'popular', 'top', 'tendencia', 'populares', 'caliente']
 const SEARCH_WORDS = ['odds', 'show', 'what about', 'que hay', 'como esta', 'cómo está', 'search', 'find', 'busca', 'muestra', 'probabilidades']
+const BALANCE_WORDS = ['balance', 'saldo', 'portfolio', 'portafolio', 'mis posiciones', 'my positions', 'mis apuestas', 'my bets', 'positions']
+const HELP_WORDS = ['help', 'ayuda', 'ajuda']
 
 // Patterns that look like bets but are actually topic searches
 // "quiero apostar en la liga mx" = search for liga mx, not place a bet
@@ -73,6 +75,16 @@ function hasBetTopic(text: string): boolean {
 
 export function parseIntent(rawText: string): ParsedIntent {
   const text = normalize(rawText)
+
+  // Check balance/portfolio (highest priority, before search fallback)
+  if (containsAny(text, BALANCE_WORDS)) {
+    return { type: 'BALANCE', raw: rawText }
+  }
+
+  // Check help
+  if (containsAny(text, HELP_WORDS)) {
+    return { type: 'HELP', raw: rawText }
+  }
 
   // Check for bet words
   if (containsAny(text, BET_WORDS)) {

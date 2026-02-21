@@ -89,10 +89,10 @@ export function Web3Provider({ children }: { children: ReactNode }) {
           chains: [MONAD_CONFIG.chainId],
           showQrModal: true,
           metadata: {
-            name: 'VoiceSwap',
-            description: 'Voice-activated crypto payments for AI glasses',
-            url: 'https://voiceswap.cc',
-            icons: ['https://voiceswap.cc/icon.png'],
+            name: 'BetWhisper',
+            description: 'AI prediction markets on Polymarket',
+            url: 'https://betwhisper.ai',
+            icons: ['https://betwhisper.ai/icon.png'],
           },
           rpcMap: {
             [MONAD_CONFIG.chainId]: MONAD_CONFIG.rpcUrl,
