@@ -60,9 +60,9 @@ export async function POST(request: NextRequest) {
     })
   }
 
-  // Check USDC balance
+  // Check USDC balance (skip if RPC fails, let CLOB reject if insufficient)
   const balance = await getUSDCBalance()
-  if (balance < amount) {
+  if (balance >= 0 && balance < amount) {
     return NextResponse.json({
       error: `Insufficient USDC balance: $${balance.toFixed(2)} available, $${amount} needed`,
     }, { status: 400 })

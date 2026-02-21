@@ -178,27 +178,30 @@ export async function executeClobBet(params: {
   }
 }
 
-// Check USDC balance on Polygon
+// Check USDC balance on Polygon (with timeout for serverless)
 export async function getUSDCBalance(): Promise<number> {
   const pk = process.env.POLYMARKET_PRIVATE_KEY
   if (!pk) { console.log('[CLOB] No POLYMARKET_PRIVATE_KEY'); return 0 }
 
   try {
-    const rpc = POLYGON_RPC
-    console.log(`[CLOB] Checking balance via RPC: ${rpc}`)
-    const provider = new JsonRpcProvider(rpc)
+    const provider = new JsonRpcProvider(POLYGON_RPC)
     const wallet = new Wallet(pk, provider)
-    console.log(`[CLOB] Wallet: ${wallet.address}, USDC contract: ${USDC_POLYGON}`)
     const usdc = new Contract(USDC_POLYGON, [
       'function balanceOf(address) view returns (uint256)',
     ], provider)
-    const balance = await usdc.balanceOf(wallet.address)
+
+    // Race against 8s timeout for serverless environments
+    const balance = await Promise.race([
+      usdc.balanceOf(wallet.address),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('RPC timeout')), 8000)),
+    ])
+
     const parsed = parseFloat(balance.toString()) / 1e6
-    console.log(`[CLOB] Balance raw: ${balance.toString()}, parsed: $${parsed}`)
+    console.log(`[CLOB] USDC balance: $${parsed}`)
     return parsed
   } catch (err) {
-    console.error('[CLOB] Balance check failed:', err)
-    return 0
+    console.error('[CLOB] Balance check failed:', err instanceof Error ? err.message : err)
+    return -1  // Return -1 to distinguish from "no key" (0)
   }
 }
 
