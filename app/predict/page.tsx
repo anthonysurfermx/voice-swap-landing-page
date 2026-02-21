@@ -69,9 +69,20 @@ type ChatAttachment =
   | { type: 'betChoice'; slug: string; yesPrice: number; noPrice: number }
   | { type: 'betPrompt'; side: 'Yes' | 'No'; slug: string; signalHash: string; conditionId: string }
   | { type: 'betConfirmed'; side: string; amount: string; txHash: string; explorerUrl?: string; source?: string; shares?: number; price?: number }
+  | { type: 'betTimeline'; steps: BetTimelineStep[]; side: string; amount: string; market: string }
   | { type: 'loading'; text: string }
   | { type: 'error'; text: string }
   | { type: 'portfolio'; data: PortfolioData }
+
+interface BetTimelineStep {
+  label: string
+  chain: string
+  status: 'pending' | 'processing' | 'confirmed' | 'error'
+  txHash?: string
+  explorerUrl?: string
+  detail?: string
+  errorMsg?: string
+}
 
 interface ChatMessage {
   id: string
@@ -1038,6 +1049,68 @@ function BetConfirmedAttachment({ side, amount, txHash, explorerUrl, source, sha
   )
 }
 
+// ─── Chat Attachment: Bet Timeline ───
+
+function BetTimelineAttachment({ steps, side, amount, market }: {
+  steps: BetTimelineStep[]; side: string; amount: string; market: string
+}) {
+  const isYes = side === 'Yes'
+  const borderColor = isYes ? 'border-emerald-500/20' : 'border-red-400/20'
+  const bgColor = isYes ? 'bg-emerald-500/[0.03]' : 'bg-red-400/[0.03]'
+  const accentColor = isYes ? 'text-emerald-500' : 'text-red-400'
+
+  return (
+    <div className={`mt-2 border ${borderColor} ${bgColor} px-4 py-3`}>
+      <div className="flex items-center gap-2 mb-3">
+        <span className={`text-[11px] font-bold font-mono ${accentColor} tracking-[1px]`}>
+          {side.toUpperCase()} ${amount}
+        </span>
+        <span className="text-[9px] font-mono text-white/20">{market}</span>
+      </div>
+      <div className="space-y-0">
+        {steps.map((step, i) => {
+          const isLast = i === steps.length - 1
+          const dotColor = step.status === 'confirmed' ? 'bg-emerald-500'
+            : step.status === 'processing' ? 'bg-amber-400 animate-pulse'
+            : step.status === 'error' ? 'bg-red-500'
+            : 'bg-white/20'
+          const textColor = step.status === 'confirmed' ? 'text-white/60'
+            : step.status === 'processing' ? 'text-amber-400'
+            : step.status === 'error' ? 'text-red-400'
+            : 'text-white/20'
+
+          return (
+            <div key={i} className="flex gap-3">
+              <div className="flex flex-col items-center">
+                <div className={`w-2.5 h-2.5 ${dotColor} flex-shrink-0 mt-1`} />
+                {!isLast && <div className={`w-px flex-1 min-h-[20px] ${step.status === 'confirmed' ? 'bg-emerald-500/30' : 'bg-white/10'}`} />}
+              </div>
+              <div className="pb-3 flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className={`text-[11px] font-bold font-mono ${textColor} tracking-[0.5px]`}>{step.label}</span>
+                  <span className="text-[8px] font-mono text-white/15 px-1 py-0.5 border border-white/[0.06]">{step.chain}</span>
+                </div>
+                {step.detail && (
+                  <div className="text-[10px] font-mono text-white/30 mt-0.5">{step.detail}</div>
+                )}
+                {step.errorMsg && (
+                  <div className="text-[10px] font-mono text-red-400/80 mt-0.5">{step.errorMsg}</div>
+                )}
+                {step.txHash && step.explorerUrl && (
+                  <a href={step.explorerUrl} target="_blank" rel="noopener noreferrer"
+                    className="text-[9px] font-mono text-white/20 hover:text-white/40 transition-colors flex items-center gap-1 mt-0.5">
+                    {step.txHash.slice(0, 14)}... <ExternalLink className="w-2.5 h-2.5" />
+                  </a>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 // ─── Chat Attachment: Bet Prompt ───
 
 function BetPromptAttachment({ side, slug, signalHash, conditionId, lang, onConfirm }: {
@@ -1617,6 +1690,10 @@ export default function PredictChat() {
     setMessages(prev => prev.filter(m => m.id !== id))
   }, [])
 
+  const updateMessage = useCallback((id: string, attachment: ChatAttachment) => {
+    setMessages(prev => prev.map(m => m.id === id ? { ...m, attachment } : m))
+  }, [])
+
   // ─── Handlers ───
 
   const searchMarkets = useCallback(async (query: string) => {
@@ -1676,23 +1753,11 @@ export default function PredictChat() {
   const handleBet = useCallback(async (side: 'Yes' | 'No', slug: string, signalHash: string, amount: string, conditionId?: string) => {
     addMessage('user', `$${amount} on ${side}`)
 
-    // Step 1: Register intent on Monad
-    let loadingId = addMessage('assistant', '', { type: 'loading', text: lang === 'es' ? 'Registrando intento en Monad...' : 'Registering intent on Monad...' })
-    let monadTxHash: string | null = null
-    if (isConnected && signer) {
-      try {
-        const result = await executeBet(signer, { marketSlug: slug, side, amount: '0.001', signalHash })
-        monadTxHash = result.txHash
-      } catch { /* continue without monad intent */ }
+    // Require wallet connection
+    if (!isConnected || !signer) {
+      addMessage('assistant', '', { type: 'error', text: lang === 'es' ? 'Conecta tu wallet para apostar.' : 'Connect your wallet to bet.' })
+      return
     }
-    if (!monadTxHash) {
-      await new Promise(r => setTimeout(r, 800))
-      monadTxHash = `0x${Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`
-    }
-    removeMessage(loadingId)
-
-    // Step 2: Execute on Polymarket CLOB
-    loadingId = addMessage('assistant', '', { type: 'loading', text: lang === 'es' ? 'Ejecutando en Polymarket CLOB...' : 'Executing on Polymarket CLOB...' })
 
     // Resolve conditionId from chat history if not passed directly
     let resolvedConditionId = conditionId
@@ -1705,7 +1770,61 @@ export default function PredictChat() {
       }
     }
 
-    let clobResult: { txHash: string; explorerUrl: string; source: string; shares: number; price: number } | null = null
+    // Initialize timeline
+    const steps: BetTimelineStep[] = [
+      { label: 'MON PAYMENT', chain: 'Monad', status: 'pending' },
+      { label: 'CLOB EXECUTION', chain: 'Polygon', status: 'pending' },
+      { label: 'POSITION OPEN', chain: 'Confirmed', status: 'pending' },
+    ]
+    const timelineId = addMessage('assistant', '', { type: 'betTimeline', steps: [...steps], side, amount, market: slug })
+    const updateTimeline = (newSteps: BetTimelineStep[]) => {
+      updateMessage(timelineId, { type: 'betTimeline', steps: [...newSteps], side, amount, market: slug })
+    }
+
+    // Step 1: MON Payment
+    steps[0].status = 'processing'
+    steps[0].detail = lang === 'es' ? 'Obteniendo precio MON...' : 'Fetching MON price...'
+    updateTimeline(steps)
+
+    let monadTxHash: string | null = null
+    let monPriceUSD = 0.021
+
+    try {
+      const priceRes = await fetch('/api/mon-price')
+      if (priceRes.ok) {
+        const priceData = await priceRes.json()
+        monPriceUSD = priceData.price || 0.021
+      }
+    } catch { /* use fallback */ }
+
+    const monAmount = (parseFloat(amount) / monPriceUSD * 1.01).toFixed(4)
+    steps[0].detail = `${monAmount} MON ($${amount} USD)`
+    updateTimeline(steps)
+
+    try {
+      const result = await executeBet(signer, {
+        marketSlug: slug, side, amountUSD: parseFloat(amount), monPriceUSD, signalHash,
+      })
+      monadTxHash = result.txHash
+      steps[0].status = 'confirmed'
+      steps[0].txHash = result.txHash
+      steps[0].explorerUrl = result.explorerUrl
+      steps[0].detail = `${result.monAmount} MON sent`
+      updateTimeline(steps)
+    } catch (err) {
+      steps[0].status = 'error'
+      steps[0].errorMsg = err instanceof Error ? err.message : 'Transaction rejected'
+      steps[0].detail = undefined
+      updateTimeline(steps)
+      return
+    }
+
+    // Step 2: CLOB Execution
+    steps[1].status = 'processing'
+    steps[1].detail = lang === 'es' ? 'Ejecutando orden...' : 'Executing order...'
+    updateTimeline(steps)
+
+    let clobResult: { txHash: string; explorerUrl: string; source: string; shares: number; price: number; tokenId?: string } | null = null
 
     if (resolvedConditionId) {
       try {
@@ -1719,10 +1838,11 @@ export default function PredictChat() {
             signalHash,
             marketSlug: slug,
             monadTxHash,
+            monPriceUSD,
           }),
         })
-        if (res.ok) {
-          const data = await res.json()
+        const data = await res.json()
+        if (res.ok && data.success) {
           clobResult = {
             txHash: data.polygonTxHash || data.txHash,
             explorerUrl: data.explorerUrl,
@@ -1730,32 +1850,55 @@ export default function PredictChat() {
             shares: data.shares,
             price: data.price,
           }
+        } else {
+          steps[1].status = 'error'
+          steps[1].errorMsg = data.error || 'CLOB execution failed'
+          if (data.orphanedPayment) {
+            steps[1].errorMsg += lang === 'es'
+              ? ' (Tu pago MON fue registrado. Contacta soporte para reembolso.)'
+              : ' (Your MON payment was recorded. Contact support for refund.)'
+          }
+          steps[1].detail = undefined
+          updateTimeline(steps)
+          return
         }
-      } catch { /* fall through to demo */ }
+      } catch {
+        steps[1].status = 'error'
+        steps[1].errorMsg = 'Network error'
+        updateTimeline(steps)
+        return
+      }
+    } else {
+      steps[1].status = 'error'
+      steps[1].errorMsg = 'No market conditionId'
+      updateTimeline(steps)
+      return
     }
 
-    if (!clobResult) {
-      await new Promise(r => setTimeout(r, 1200))
-      const mockHash = `0x${Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`
-      clobResult = { txHash: mockHash, explorerUrl: `https://polygonscan.com/tx/${mockHash}`, source: 'demo', shares: parseFloat(amount) / 0.5, price: 0.5 }
-    }
+    steps[1].status = 'confirmed'
+    steps[1].txHash = clobResult.txHash
+    steps[1].explorerUrl = clobResult.explorerUrl
+    steps[1].detail = `$${parseFloat(amount).toFixed(2)} USDC → ${clobResult.shares.toFixed(1)} shares`
+    updateTimeline(steps)
 
-    // Record bet
+    // Step 3: Record position
+    steps[2].status = 'processing'
+    updateTimeline(steps)
+
     await fetch('/api/bet', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ marketSlug: slug, side, amount, walletAddress: address || 'demo', txHash: clobResult.txHash, signalHash, source: clobResult.source, monadTxHash }),
+      body: JSON.stringify({
+        marketSlug: slug, side, amount, walletAddress: address || 'demo',
+        txHash: clobResult.txHash, signalHash, source: clobResult.source, monadTxHash,
+        conditionId: resolvedConditionId, shares: clobResult.shares, price: clobResult.price,
+      }),
     }).catch(() => {})
 
-    removeMessage(loadingId)
-
-    // Step 3: Confirmed
-    addMessage('assistant', lang === 'es' ? 'Apuesta confirmada en Polymarket.' : 'Bet confirmed on Polymarket.', {
-      type: 'betConfirmed', side, amount, txHash: clobResult.txHash,
-      explorerUrl: clobResult.explorerUrl, source: clobResult.source,
-      shares: clobResult.shares, price: clobResult.price,
-    })
-  }, [isConnected, signer, address, messages, addMessage, removeMessage, lang])
+    steps[2].status = 'confirmed'
+    steps[2].detail = `${side.toUpperCase()} @ $${clobResult.price.toFixed(2)} · ${clobResult.shares.toFixed(1)} shares`
+    updateTimeline(steps)
+  }, [isConnected, signer, address, messages, addMessage, updateMessage, lang])
 
   const showPortfolio = useCallback(async () => {
     if (!isConnected || !address) {
@@ -2056,6 +2199,10 @@ export default function PredictChat() {
                     <BetConfirmedAttachment side={msg.attachment.side} amount={msg.attachment.amount} txHash={msg.attachment.txHash}
                       explorerUrl={msg.attachment.explorerUrl} source={msg.attachment.source}
                       shares={msg.attachment.shares} price={msg.attachment.price} />
+                  )}
+                  {msg.attachment.type === 'betTimeline' && (
+                    <BetTimelineAttachment steps={msg.attachment.steps} side={msg.attachment.side}
+                      amount={msg.attachment.amount} market={msg.attachment.market} />
                   )}
                   {msg.attachment.type === 'portfolio' && (
                     <PortfolioAttachment data={msg.attachment.data} />
