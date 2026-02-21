@@ -2,8 +2,8 @@
 // User sends MON equivalent to their USD bet amount to BetWhisper deposit address
 // Bet metadata in calldata provides on-chain data provenance
 
-import { JsonRpcSigner, parseEther, hexlify, toUtf8Bytes, formatEther } from 'ethers'
-import { MONAD_EXPLORER, BETWHISPER_DEPOSIT_ADDRESS } from './constants'
+import { JsonRpcSigner, JsonRpcProvider, Wallet, parseEther, hexlify, toUtf8Bytes, formatEther } from 'ethers'
+import { MONAD_EXPLORER, MONAD_RPC, BETWHISPER_DEPOSIT_ADDRESS } from './constants'
 
 export interface BetParams {
   marketSlug: string
@@ -126,5 +126,52 @@ export async function verifyMonadPayment(txHash: string, expectedAmountUSD: numb
     return { verified: true, from: tx.from, value: valueMON.toFixed(6), computedUSD }
   } catch (err) {
     return { verified: false, error: err instanceof Error ? err.message : 'Verification failed' }
+  }
+}
+
+// Server-side: send MON to user wallet (cashout after sell)
+export async function sendMON(toAddress: string, amountMON: number): Promise<{
+  txHash: string
+  explorerUrl: string
+}> {
+  const pk = process.env.POLYMARKET_PRIVATE_KEY
+  if (!pk) throw new Error('POLYMARKET_PRIVATE_KEY not set')
+
+  const provider = new JsonRpcProvider(MONAD_RPC)
+  const wallet = new Wallet(pk, provider)
+
+  // Explicit nonce to avoid race conditions with concurrent cashouts
+  const nonce = await provider.getTransactionCount(wallet.address, 'pending')
+
+  const tx = await wallet.sendTransaction({
+    to: toAddress,
+    value: parseEther(amountMON.toFixed(6)),
+    nonce,
+  })
+
+  const receipt = await tx.wait()
+  if (!receipt || receipt.status === 0) {
+    throw new Error('MON transfer failed on-chain')
+  }
+
+  return {
+    txHash: tx.hash,
+    explorerUrl: `${MONAD_EXPLORER}/tx/${tx.hash}`,
+  }
+}
+
+// Server-side: check MON balance of server wallet on Monad
+export async function getServerMONBalance(): Promise<number> {
+  const pk = process.env.POLYMARKET_PRIVATE_KEY
+  if (!pk) return 0
+
+  try {
+    const provider = new JsonRpcProvider(MONAD_RPC)
+    const wallet = new Wallet(pk, provider)
+    const balance = await provider.getBalance(wallet.address)
+    return parseFloat(formatEther(balance))
+  } catch (err) {
+    console.error('[Monad] Balance check failed:', err instanceof Error ? err.message : err)
+    return -1
   }
 }

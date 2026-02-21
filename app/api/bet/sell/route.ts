@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { executeClobSell } from '@/lib/polymarket-clob'
+import { sendMON, getServerMONBalance } from '@/lib/monad-bet'
 import { sql } from '@/lib/db'
+import { verifyJWT, extractBearerToken } from '@/lib/auth'
 
-// NOTE: Sell cashout limitation
-// When shares are sold, the USDC proceeds stay in the server's Polygon wallet.
-// The user's position is closed in the DB, but actual USDC is not transferred back.
-// Future: bridge USDC to Monad and send MON equivalent back to user's wallet,
-// or implement a withdrawal queue with manual admin processing.
+// MON cashout: after CLOB sell, send MON equivalent to user on Monad
+// Gas buffer deducted from cashout amount (~0.5 MON)
+const GAS_BUFFER_MON = 0.5
 
 export async function POST(request: NextRequest) {
   const body = await request.json()
@@ -14,6 +14,24 @@ export async function POST(request: NextRequest) {
 
   if (!wallet || !tokenId || !shares) {
     return NextResponse.json({ error: 'Missing required fields: wallet, tokenId, shares' }, { status: 400 })
+  }
+
+  // Auth: JWT (web with PIN) or iOS platform header (Face ID gated client-side)
+  const platform = request.headers.get('x-platform')
+  const token = extractBearerToken(request.headers.get('authorization'))
+
+  if (platform === 'ios') {
+    // iOS: Face ID is enforced on device. Verify wallet owns the position (checked below).
+  } else if (token) {
+    const payload = await verifyJWT(token)
+    if (!payload) {
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 })
+    }
+    if (payload.wallet !== wallet.toLowerCase()) {
+      return NextResponse.json({ error: 'Token wallet mismatch' }, { status: 403 })
+    }
+  } else {
+    return NextResponse.json({ error: 'Authorization required. Verify your PIN first.' }, { status: 401 })
   }
 
   const sharesToSell = parseFloat(shares)
@@ -51,7 +69,6 @@ export async function POST(request: NextRequest) {
     const remainingShares = currentShares - (result.shares || sharesToSell)
 
     if (remainingShares <= 0.001) {
-      // Close position
       await sql`DELETE FROM positions WHERE id = ${position.id}`
     } else {
       await sql`
@@ -63,6 +80,46 @@ export async function POST(request: NextRequest) {
       `
     }
 
+    // MON CASHOUT: Send MON equivalent to user on Monad
+    let monCashout: { monAmount: number; txHash: string; explorerUrl: string; status: string } | null = null
+
+    if (result.amountUSD > 0) {
+      // Fetch MON price
+      let monPriceUSD = 0.021
+      try {
+        const priceRes = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=monad&vs_currencies=usd')
+        if (priceRes.ok) {
+          const priceData = await priceRes.json()
+          if (priceData?.monad?.usd > 0) monPriceUSD = priceData.monad.usd
+        }
+      } catch { /* fallback */ }
+
+      const monToSend = (result.amountUSD / monPriceUSD) - GAS_BUFFER_MON
+
+      if (monToSend > 0) {
+        const serverBalance = await getServerMONBalance()
+
+        if (serverBalance > monToSend + GAS_BUFFER_MON) {
+          try {
+            const cashoutResult = await sendMON(wallet, monToSend)
+            monCashout = {
+              monAmount: monToSend,
+              txHash: cashoutResult.txHash,
+              explorerUrl: cashoutResult.explorerUrl,
+              status: 'sent',
+            }
+            console.log(`[Cashout] Sent ${monToSend.toFixed(4)} MON to ${wallet}`)
+          } catch (err) {
+            console.error('[Cashout] MON transfer failed:', err instanceof Error ? err.message : err)
+            monCashout = { monAmount: monToSend, txHash: '', explorerUrl: '', status: 'failed' }
+          }
+        } else {
+          console.warn(`[Cashout] Insufficient MON: need ${monToSend.toFixed(4)}, have ${serverBalance.toFixed(4)}`)
+          monCashout = { monAmount: monToSend, txHash: '', explorerUrl: '', status: 'pending' }
+        }
+      }
+    }
+
     return NextResponse.json({
       success: true,
       sharesSold: result.shares,
@@ -72,6 +129,7 @@ export async function POST(request: NextRequest) {
       explorerUrl: result.explorerUrl,
       remainingShares: Math.max(remainingShares, 0),
       marketSlug,
+      monCashout,
     })
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Unknown error'

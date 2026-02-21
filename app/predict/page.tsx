@@ -73,6 +73,17 @@ type ChatAttachment =
   | { type: 'loading'; text: string }
   | { type: 'error'; text: string }
   | { type: 'portfolio'; data: PortfolioData }
+  | { type: 'pinSetup'; wallet: string }
+  | { type: 'pinVerify'; wallet: string }
+  | { type: 'balanceView'; positions: BalancePosition[]; totalValue: number; totalPnl: number }
+  | { type: 'sellTimeline'; steps: BetTimelineStep[]; marketSlug: string }
+  | { type: 'contextInsight'; insight: string; keyStats: string[] }
+
+interface BalancePosition {
+  id: number; marketSlug: string; side: string; shares: number; avgPrice: number
+  currentPrice: number; costBasis: number; currentValue: number; pnl: number; pnlPct: number
+  tokenId: string; tickSize: string; negRisk: boolean
+}
 
 interface BetTimelineStep {
   label: string
@@ -618,10 +629,11 @@ const CLASSIFICATION_COLORS: Record<string, string> = {
   mixed: 'text-yellow-400 border-yellow-400/30', human: 'text-emerald-400 border-emerald-400/30',
 }
 
-function DeepAnalysisAttachment({ analysis, market, lang, onExplain, onSkipToBet }: {
+function DeepAnalysisAttachment({ analysis, market, lang, onExplain, onSkipToBet, onContext }: {
   analysis: DeepAnalysisResult; market: MarketInfo; lang: Lang
   onExplain: (analysis: DeepAnalysisResult, market: MarketInfo) => void
   onSkipToBet: (market: MarketInfo, analysis: DeepAnalysisResult) => void
+  onContext?: (title: string, slug: string) => void
 }) {
   const { classifications, capitalByOutcome, topHolders, strategies } = analysis
   const totalYesCap = capitalByOutcome.Yes.total
@@ -794,6 +806,13 @@ function DeepAnalysisAttachment({ analysis, market, lang, onExplain, onSkipToBet
           <Brain className="w-3.5 h-3.5" />
           {t(lang, 'explainWithAI')}
         </button>
+        {onContext && (
+          <button onClick={() => onContext(market.question || market.slug, market.slug)}
+            className="flex-1 py-2.5 text-[12px] font-semibold border border-blue-500/30 text-blue-400 hover:bg-blue-500/10 transition-colors active:scale-[0.97] flex items-center justify-center gap-1.5">
+            <TrendingUp className="w-3.5 h-3.5" />
+            Stats
+          </button>
+        )}
         <button onClick={() => onSkipToBet(market, analysis)}
           className="flex-1 py-2.5 text-[12px] font-semibold border border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10 transition-colors active:scale-[0.97]">
           {t(lang, 'skipAnalysis')}
@@ -1107,6 +1126,294 @@ function BetTimelineAttachment({ steps, side, amount, market }: {
           )
         })}
       </div>
+    </div>
+  )
+}
+
+// ─── Chat Attachment: PIN Setup ───
+
+function PinSetupAttachment({ wallet, onComplete }: { wallet: string; onComplete: () => void }) {
+  const [digits, setDigits] = useState(['', '', '', ''])
+  const [confirm, setConfirm] = useState(['', '', '', ''])
+  const [step, setStep] = useState<'create' | 'confirm' | 'done'>('create')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+  const refs = [useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null)]
+  const confirmRefs = [useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null)]
+
+  const handleInput = (arr: string[], setArr: (v: string[]) => void, inputRefs: typeof refs, idx: number, val: string) => {
+    if (!/^\d?$/.test(val)) return
+    const next = [...arr]
+    next[idx] = val
+    setArr(next)
+    if (val && idx < 3) inputRefs[idx + 1].current?.focus()
+  }
+
+  const handleSubmit = async () => {
+    const pin = (step === 'create' ? digits : confirm).join('')
+    if (pin.length !== 4) return
+
+    if (step === 'create') {
+      setStep('confirm')
+      setError('')
+      setTimeout(() => confirmRefs[0].current?.focus(), 100)
+      return
+    }
+
+    if (digits.join('') !== confirm.join('')) {
+      setError('PINs do not match')
+      setConfirm(['', '', '', ''])
+      setTimeout(() => confirmRefs[0].current?.focus(), 100)
+      return
+    }
+
+    setLoading(true)
+    try {
+      const res = await fetch('/api/user/pin/setup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wallet, pin }),
+      })
+      if (res.ok) {
+        setStep('done')
+        onComplete()
+      } else {
+        const data = await res.json()
+        setError(data.error || 'Failed to set PIN')
+      }
+    } catch { setError('Network error') }
+    setLoading(false)
+  }
+
+  if (step === 'done') {
+    return (
+      <div className="mt-2 border border-emerald-500/20 bg-emerald-500/[0.03] px-4 py-3">
+        <div className="flex items-center gap-2">
+          <CheckCircle className="w-4 h-4 text-emerald-500" />
+          <span className="text-[12px] font-mono text-emerald-500">PIN created</span>
+        </div>
+      </div>
+    )
+  }
+
+  const activeDigits = step === 'create' ? digits : confirm
+  const activeRefs = step === 'create' ? refs : confirmRefs
+  const activeSet = step === 'create' ? setDigits : setConfirm
+
+  return (
+    <div className="mt-2 border border-white/[0.10] bg-white/[0.04] px-4 py-3">
+      <div className="text-[9px] font-bold font-mono text-white/30 tracking-[1.5px] mb-3">
+        {step === 'create' ? 'CREATE PIN' : 'CONFIRM PIN'}
+      </div>
+      <div className="flex gap-2 justify-center mb-3">
+        {activeDigits.map((d, i) => (
+          <input key={`${step}-${i}`} ref={activeRefs[i]} type="password" inputMode="numeric" maxLength={1} value={d}
+            onChange={e => handleInput(activeDigits, activeSet, activeRefs, i, e.target.value)}
+            onKeyDown={e => { if (e.key === 'Backspace' && !d && i > 0) activeRefs[i - 1].current?.focus() }}
+            className="w-10 h-12 text-center text-[20px] font-mono font-bold text-white bg-white/[0.06] border border-white/[0.15] focus:border-white/40 outline-none"
+          />
+        ))}
+      </div>
+      {error && <div className="text-[10px] font-mono text-red-400 mb-2 text-center">{error}</div>}
+      <button onClick={handleSubmit} disabled={loading || activeDigits.join('').length !== 4}
+        className="w-full py-2 text-[11px] font-bold font-mono tracking-[1px] border border-white/20 text-white/60 hover:bg-white/[0.06] disabled:opacity-30 transition-colors">
+        {loading ? 'SAVING...' : step === 'create' ? 'NEXT' : 'CONFIRM'}
+      </button>
+    </div>
+  )
+}
+
+// ─── Chat Attachment: PIN Verify ───
+
+function PinVerifyAttachment({ wallet, onSuccess }: { wallet: string; onSuccess: (token: string) => void }) {
+  const [digits, setDigits] = useState(['', '', '', ''])
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [attemptsLeft, setAttemptsLeft] = useState<number | null>(null)
+  const refs = [useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null)]
+
+  const handleInput = (idx: number, val: string) => {
+    if (!/^\d?$/.test(val)) return
+    const next = [...digits]
+    next[idx] = val
+    setDigits(next)
+    if (val && idx < 3) refs[idx + 1].current?.focus()
+
+    // Auto-submit when all 4 digits entered
+    if (val && idx === 3) {
+      const pin = [...next].join('')
+      if (pin.length === 4) submitPin(pin)
+    }
+  }
+
+  const submitPin = async (pin: string) => {
+    setLoading(true)
+    setError('')
+    try {
+      const res = await fetch('/api/user/pin/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wallet, pin }),
+      })
+      const data = await res.json()
+      if (data.verified && data.token) {
+        onSuccess(data.token)
+      } else if (data.locked) {
+        setError(`Locked. Try again in ${data.minutesLeft} min.`)
+      } else {
+        setAttemptsLeft(data.attemptsRemaining ?? null)
+        setError('Wrong PIN')
+        setDigits(['', '', '', ''])
+        setTimeout(() => refs[0].current?.focus(), 100)
+      }
+    } catch { setError('Network error') }
+    setLoading(false)
+  }
+
+  return (
+    <div className="mt-2 border border-white/[0.10] bg-white/[0.04] px-4 py-3">
+      <div className="text-[9px] font-bold font-mono text-white/30 tracking-[1.5px] mb-3">ENTER PIN</div>
+      <div className="flex gap-2 justify-center mb-3">
+        {digits.map((d, i) => (
+          <input key={i} ref={refs[i]} type="password" inputMode="numeric" maxLength={1} value={d}
+            onChange={e => handleInput(i, e.target.value)}
+            onKeyDown={e => { if (e.key === 'Backspace' && !d && i > 0) refs[i - 1].current?.focus() }}
+            className="w-10 h-12 text-center text-[20px] font-mono font-bold text-white bg-white/[0.06] border border-white/[0.15] focus:border-white/40 outline-none"
+          />
+        ))}
+      </div>
+      {loading && <div className="text-[10px] font-mono text-amber-400 text-center animate-pulse">Verifying...</div>}
+      {error && <div className="text-[10px] font-mono text-red-400 text-center">{error}</div>}
+      {attemptsLeft !== null && attemptsLeft > 0 && (
+        <div className="text-[9px] font-mono text-white/20 text-center mt-1">{attemptsLeft} attempts remaining</div>
+      )}
+    </div>
+  )
+}
+
+// ─── Chat Attachment: Balance View ───
+
+function BalanceViewAttachment({ positions, totalValue, totalPnl, onSell }: {
+  positions: BalancePosition[]; totalValue: number; totalPnl: number
+  onSell: (pos: BalancePosition) => void
+}) {
+  return (
+    <div className="mt-2 border border-white/[0.10] bg-white/[0.04]">
+      <div className="px-4 py-2 border-b border-white/[0.06] flex items-center justify-between">
+        <span className="text-[9px] font-bold font-mono text-white/30 tracking-[1.5px]">YOUR POSITIONS</span>
+        <span className="text-[10px] font-mono text-white/20">{positions.length} open</span>
+      </div>
+      <div className="grid grid-cols-2 gap-px bg-white/[0.06]">
+        <div className="bg-black px-4 py-3">
+          <div className="text-[10px] text-white/30 mb-0.5">Value</div>
+          <div className="text-[16px] font-bold font-mono text-white">${totalValue.toFixed(2)}</div>
+        </div>
+        <div className="bg-black px-4 py-3">
+          <div className="text-[10px] text-white/30 mb-0.5">P&L</div>
+          <div className={`text-[16px] font-bold font-mono ${totalPnl >= 0 ? 'text-emerald-500' : 'text-red-400'}`}>
+            {totalPnl >= 0 ? '+' : ''}${totalPnl.toFixed(2)}
+          </div>
+        </div>
+      </div>
+      {positions.length > 0 ? (
+        <div className="divide-y divide-white/[0.06]">
+          {positions.map(pos => (
+            <div key={pos.id} className="px-4 py-3">
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex-1 min-w-0">
+                  <div className="text-[12px] text-white/70 truncate pr-2">{pos.marketSlug}</div>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className={`text-[10px] font-bold font-mono ${pos.side === 'Yes' ? 'text-emerald-500' : 'text-red-400'}`}>
+                      {pos.side.toUpperCase()}
+                    </span>
+                    <span className="text-[10px] font-mono text-white/20">
+                      {pos.shares.toFixed(1)} @ ${pos.avgPrice.toFixed(2)} → ${pos.currentPrice.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className={`text-[12px] font-mono font-semibold ${pos.pnl >= 0 ? 'text-emerald-500' : 'text-red-400'}`}>
+                    {pos.pnl >= 0 ? '+' : ''}${pos.pnl.toFixed(2)}
+                  </span>
+                  <button onClick={() => onSell(pos)}
+                    className="px-3 py-1 text-[10px] font-bold font-mono tracking-[1px] border border-amber-500/30 text-amber-400 hover:bg-amber-500/10 transition-colors">
+                    SELL
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="px-4 py-6 text-center text-[12px] font-mono text-white/20">No open positions</div>
+      )}
+    </div>
+  )
+}
+
+// ─── Chat Attachment: Sell Timeline ───
+
+function SellTimelineAttachment({ steps, marketSlug }: { steps: BetTimelineStep[]; marketSlug: string }) {
+  return (
+    <div className="mt-2 border border-amber-500/20 bg-amber-500/[0.03] px-4 py-3">
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-[11px] font-bold font-mono text-amber-400 tracking-[1px]">SELL</span>
+        <span className="text-[9px] font-mono text-white/20">{marketSlug}</span>
+      </div>
+      <div className="space-y-0">
+        {steps.map((step, i) => {
+          const isLast = i === steps.length - 1
+          const dotColor = step.status === 'confirmed' ? 'bg-emerald-500'
+            : step.status === 'processing' ? 'bg-amber-400 animate-pulse'
+            : step.status === 'error' ? 'bg-red-500' : 'bg-white/20'
+          const textColor = step.status === 'confirmed' ? 'text-white/60'
+            : step.status === 'processing' ? 'text-amber-400'
+            : step.status === 'error' ? 'text-red-400' : 'text-white/20'
+          return (
+            <div key={i} className="flex gap-3">
+              <div className="flex flex-col items-center">
+                <div className={`w-2.5 h-2.5 ${dotColor} flex-shrink-0 mt-1`} />
+                {!isLast && <div className={`w-px flex-1 min-h-[20px] ${step.status === 'confirmed' ? 'bg-emerald-500/30' : 'bg-white/10'}`} />}
+              </div>
+              <div className="pb-3 flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className={`text-[11px] font-bold font-mono ${textColor} tracking-[0.5px]`}>{step.label}</span>
+                  <span className="text-[8px] font-mono text-white/15 px-1 py-0.5 border border-white/[0.06]">{step.chain}</span>
+                </div>
+                {step.detail && <div className="text-[10px] font-mono text-white/30 mt-0.5">{step.detail}</div>}
+                {step.errorMsg && <div className="text-[10px] font-mono text-red-400/80 mt-0.5">{step.errorMsg}</div>}
+                {step.txHash && step.explorerUrl && (
+                  <a href={step.explorerUrl} target="_blank" rel="noopener noreferrer"
+                    className="text-[9px] font-mono text-white/20 hover:text-white/40 transition-colors flex items-center gap-1 mt-0.5">
+                    {step.txHash.slice(0, 14)}... <ExternalLink className="w-2.5 h-2.5" />
+                  </a>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ─── Chat Attachment: Context Insight ───
+
+function ContextInsightAttachment({ insight, keyStats }: { insight: string; keyStats: string[] }) {
+  return (
+    <div className="mt-2 border border-blue-500/20 bg-blue-500/[0.03] px-4 py-3">
+      <div className="text-[9px] font-bold font-mono text-blue-400/60 tracking-[1.5px] mb-2">CONTEXT / STATS</div>
+      <div className="text-[12px] text-white/60 leading-relaxed mb-2">{insight}</div>
+      {keyStats.length > 0 && (
+        <div className="space-y-1">
+          {keyStats.map((stat, i) => (
+            <div key={i} className="flex items-start gap-2">
+              <span className="text-[10px] text-blue-400/50 mt-0.5">&#9679;</span>
+              <span className="text-[11px] font-mono text-white/40">{stat}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -1672,6 +1979,7 @@ export default function PredictChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [inputText, setInputText] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
+  const [pinToken, setPinToken] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const initialLoadDone = useRef(false)
@@ -1918,6 +2226,162 @@ export default function PredictChat() {
     }
   }, [isConnected, address, addMessage, removeMessage, lang])
 
+  // Balance with PIN gate
+  const showBalance = useCallback(async () => {
+    if (!isConnected || !address) {
+      addMessage('assistant', lang === 'es' ? 'Conecta tu wallet primero.' : 'Connect your wallet first.')
+      return
+    }
+
+    // If we have a valid token, fetch balance directly
+    if (pinToken) {
+      const loadingId = addMessage('assistant', '', { type: 'loading', text: lang === 'es' ? 'Cargando posiciones...' : 'Loading positions...' })
+      try {
+        const res = await fetch(`/api/user/balance?wallet=${address.toLowerCase()}`, {
+          headers: { Authorization: `Bearer ${pinToken}` },
+        })
+        removeMessage(loadingId)
+        if (res.status === 401) {
+          setPinToken(null)
+          // Token expired, re-verify
+          addMessage('assistant', lang === 'es' ? 'Sesion expirada. Ingresa tu PIN.' : 'Session expired. Enter your PIN.', { type: 'pinVerify', wallet: address.toLowerCase() })
+          return
+        }
+        if (!res.ok) throw new Error('API error')
+        const data = await res.json()
+        addMessage('assistant', '', { type: 'balanceView', positions: data.positions, totalValue: data.totalValue, totalPnl: data.totalPnl })
+      } catch {
+        removeMessage(loadingId)
+        addMessage('assistant', '', { type: 'error', text: lang === 'es' ? 'Error cargando balance' : 'Failed to load balance' })
+      }
+      return
+    }
+
+    // Check if user has PIN
+    try {
+      const checkRes = await fetch(`/api/user/pin/check?wallet=${address.toLowerCase()}`)
+      const checkData = await checkRes.json()
+      if (checkData.hasPin) {
+        addMessage('assistant', lang === 'es' ? 'Ingresa tu PIN para ver tu balance.' : 'Enter your PIN to view your balance.', { type: 'pinVerify', wallet: address.toLowerCase() })
+      } else {
+        addMessage('assistant', lang === 'es' ? 'Primero crea un PIN de 4 digitos para proteger tu cuenta.' : 'First, create a 4-digit PIN to secure your account.', { type: 'pinSetup', wallet: address.toLowerCase() })
+      }
+    } catch {
+      addMessage('assistant', '', { type: 'error', text: 'Network error' })
+    }
+  }, [isConnected, address, pinToken, addMessage, removeMessage, lang])
+
+  // Handle PIN verification success
+  const handlePinSuccess = useCallback(async (token: string) => {
+    setPinToken(token)
+    // Auto-fetch balance after PIN verified
+    const loadingId = addMessage('assistant', '', { type: 'loading', text: lang === 'es' ? 'Cargando posiciones...' : 'Loading positions...' })
+    try {
+      const res = await fetch(`/api/user/balance?wallet=${address?.toLowerCase()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      removeMessage(loadingId)
+      if (!res.ok) throw new Error('API error')
+      const data = await res.json()
+      addMessage('assistant', '', { type: 'balanceView', positions: data.positions, totalValue: data.totalValue, totalPnl: data.totalPnl })
+    } catch {
+      removeMessage(loadingId)
+      addMessage('assistant', '', { type: 'error', text: lang === 'es' ? 'Error cargando balance' : 'Failed to load balance' })
+    }
+  }, [address, addMessage, removeMessage, lang])
+
+  // Sell position
+  const handleSell = useCallback(async (pos: BalancePosition) => {
+    if (!pinToken || !address) {
+      addMessage('assistant', lang === 'es' ? 'Verifica tu PIN primero.' : 'Verify your PIN first.')
+      return
+    }
+
+    const steps: BetTimelineStep[] = [
+      { label: 'CLOB SELL', chain: 'Polygon', status: 'pending' },
+      { label: 'MON CASHOUT', chain: 'Monad', status: 'pending' },
+    ]
+    const timelineId = addMessage('assistant', '', { type: 'sellTimeline', steps: [...steps], marketSlug: pos.marketSlug })
+    const update = (s: BetTimelineStep[]) => updateMessage(timelineId, { type: 'sellTimeline', steps: [...s], marketSlug: pos.marketSlug })
+
+    steps[0].status = 'processing'
+    steps[0].detail = `Selling ${pos.shares.toFixed(1)} shares...`
+    update(steps)
+
+    try {
+      const res = await fetch('/api/bet/sell', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${pinToken}` },
+        body: JSON.stringify({
+          wallet: address.toLowerCase(),
+          tokenId: pos.tokenId,
+          shares: pos.shares,
+          tickSize: pos.tickSize,
+          negRisk: pos.negRisk,
+          marketSlug: pos.marketSlug,
+        }),
+      })
+      const data = await res.json()
+
+      if (!res.ok || !data.success) {
+        steps[0].status = 'error'
+        steps[0].errorMsg = data.error || 'Sell failed'
+        update(steps)
+        return
+      }
+
+      steps[0].status = 'confirmed'
+      steps[0].detail = `Sold ${data.sharesSold?.toFixed(1)} shares for $${data.usdReceived?.toFixed(2)}`
+      steps[0].txHash = data.polygonTxHash
+      steps[0].explorerUrl = data.explorerUrl
+      update(steps)
+
+      // Step 2: MON Cashout
+      if (data.monCashout) {
+        const mc = data.monCashout
+        if (mc.status === 'sent') {
+          steps[1].status = 'confirmed'
+          steps[1].detail = `${mc.monAmount.toFixed(2)} MON sent`
+          steps[1].txHash = mc.txHash
+          steps[1].explorerUrl = mc.explorerUrl
+        } else if (mc.status === 'pending') {
+          steps[1].status = 'processing'
+          steps[1].detail = lang === 'es' ? 'Cashout en cola (procesamiento manual)' : 'Cashout queued (manual processing)'
+        } else {
+          steps[1].status = 'error'
+          steps[1].errorMsg = lang === 'es' ? 'Cashout fallido. Contacta soporte.' : 'Cashout failed. Contact support.'
+        }
+      } else {
+        steps[1].status = 'confirmed'
+        steps[1].detail = lang === 'es' ? 'Sin monto para cashout' : 'No amount to cash out'
+      }
+      update(steps)
+    } catch {
+      steps[0].status = 'error'
+      steps[0].errorMsg = 'Network error'
+      update(steps)
+    }
+  }, [pinToken, address, addMessage, updateMessage, lang])
+
+  // Fetch AI context for a market
+  const fetchContext = useCallback(async (marketTitle: string, marketSlug: string) => {
+    const loadingId = addMessage('assistant', '', { type: 'loading', text: lang === 'es' ? 'Consultando estadisticas...' : 'Fetching stats...' })
+    try {
+      const res = await fetch('/api/market/context', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ marketTitle, marketSlug }),
+      })
+      removeMessage(loadingId)
+      if (!res.ok) throw new Error('API error')
+      const data = await res.json()
+      addMessage('assistant', '', { type: 'contextInsight', insight: data.insight, keyStats: data.keyStats || [] })
+    } catch {
+      removeMessage(loadingId)
+      addMessage('assistant', '', { type: 'error', text: lang === 'es' ? 'Error obteniendo contexto' : 'Failed to fetch context' })
+    }
+  }, [addMessage, removeMessage, lang])
+
   const handleUserMessage = useCallback(async (text: string) => {
     const intent = parseIntent(text)
 
@@ -1949,8 +2413,21 @@ export default function PredictChat() {
         break
       default: {
         const lower = text.toLowerCase()
-        if (lower.includes('portfolio') || lower.includes('positions') || lower.includes('mis apuestas') || lower.includes('portafolio')) {
-          await showPortfolio()
+        if (lower.includes('balance') || lower.includes('saldo') || lower.includes('mis posiciones') || lower.includes('my positions')) {
+          await showBalance()
+        } else if (lower.includes('portfolio') || lower.includes('positions') || lower.includes('mis apuestas') || lower.includes('portafolio')) {
+          await showBalance()
+        } else if (lower.includes('stats') || lower.includes('estadisticas') || lower.includes('contexto') || lower.includes('context')) {
+          // Find the last analyzed market
+          const analysisMsg = [...messages].reverse().find(m =>
+            m.attachment?.type === 'deepAnalysis' || m.attachment?.type === 'marketPreview'
+          )
+          if (analysisMsg?.attachment && 'market' in analysisMsg.attachment) {
+            const market = analysisMsg.attachment.market
+            await fetchContext(market.question || market.slug, market.slug)
+          } else {
+            addMessage('assistant', lang === 'es' ? 'Primero analiza un mercado.' : 'Analyze a market first.')
+          }
         } else if (lower.includes('help') || lower.includes('ayuda') || lower.includes('ajuda')) {
           addMessage('assistant', t(lang, 'helpText'))
         } else {
@@ -1959,7 +2436,7 @@ export default function PredictChat() {
         }
       }
     }
-  }, [messages, searchMarkets, handleBet, showPortfolio, addMessage, lang])
+  }, [messages, searchMarkets, handleBet, showPortfolio, showBalance, fetchContext, addMessage, lang])
 
   const sendMessage = useCallback(async () => {
     const text = inputText.trim()
@@ -2176,7 +2653,7 @@ export default function PredictChat() {
                   )}
                   {msg.attachment.type === 'deepAnalysis' && (
                     <DeepAnalysisAttachment analysis={msg.attachment.analysis} market={msg.attachment.market}
-                      lang={lang} onExplain={handleExplainWithAI} onSkipToBet={handleAskAmount} />
+                      lang={lang} onExplain={handleExplainWithAI} onSkipToBet={handleAskAmount} onContext={fetchContext} />
                   )}
                   {msg.attachment.type === 'aiExplanation' && (
                     <AIExplanationAttachment lines={msg.attachment.lines} market={msg.attachment.market}
@@ -2206,6 +2683,22 @@ export default function PredictChat() {
                   )}
                   {msg.attachment.type === 'portfolio' && (
                     <PortfolioAttachment data={msg.attachment.data} />
+                  )}
+                  {msg.attachment.type === 'pinSetup' && (
+                    <PinSetupAttachment wallet={msg.attachment.wallet} onComplete={() => showBalance()} />
+                  )}
+                  {msg.attachment.type === 'pinVerify' && (
+                    <PinVerifyAttachment wallet={msg.attachment.wallet} onSuccess={handlePinSuccess} />
+                  )}
+                  {msg.attachment.type === 'balanceView' && (
+                    <BalanceViewAttachment positions={msg.attachment.positions} totalValue={msg.attachment.totalValue}
+                      totalPnl={msg.attachment.totalPnl} onSell={handleSell} />
+                  )}
+                  {msg.attachment.type === 'sellTimeline' && (
+                    <SellTimelineAttachment steps={msg.attachment.steps} marketSlug={msg.attachment.marketSlug} />
+                  )}
+                  {msg.attachment.type === 'contextInsight' && (
+                    <ContextInsightAttachment insight={msg.attachment.insight} keyStats={msg.attachment.keyStats} />
                   )}
                 </div>
               )}

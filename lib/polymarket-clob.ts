@@ -29,7 +29,7 @@ export interface ClobTokenIds {
   negRisk: boolean
 }
 
-async function getClient(): Promise<ClobClient> {
+export async function getClient(): Promise<ClobClient> {
   if (clientInstance) return clientInstance
 
   const pk = process.env.POLYMARKET_PRIVATE_KEY
@@ -80,7 +80,7 @@ export async function getTokenIds(conditionId: string): Promise<ClobTokenIds | n
 }
 
 // Get current best price for a token (for slippage calculation)
-async function getBestPrice(client: ClobClient, tokenID: string, side: Side): Promise<number> {
+export async function getBestPrice(client: ClobClient, tokenID: string, side: Side): Promise<number> {
   try {
     const book = await client.getOrderBook(tokenID)
     if (side === Side.BUY) {
@@ -113,6 +113,9 @@ export async function executeClobBet(params: {
   outcomeIndex: number  // 0 = Yes, 1 = No
   amountUSD: number
   signalHash: string
+  tokenId?: string       // Direct token ID (skips Gamma lookup)
+  tickSize?: string      // Tick size when using direct tokenId
+  negRisk?: boolean      // Neg risk flag when using direct tokenId
 }): Promise<ClobBetResult> {
   const { conditionId, outcomeIndex, amountUSD } = params
 
@@ -124,46 +127,71 @@ export async function executeClobBet(params: {
     throw new Error('Bet amount must be positive')
   }
 
-  // Get token IDs
-  const tokens = await getTokenIds(conditionId)
-  if (!tokens) throw new Error('Market not found or missing token IDs')
+  // Resolve token ID: use direct tokenId if provided, otherwise look up via Gamma
+  let tokenID: string
+  let tickSize: string
+  let negRisk: boolean
 
-  const tokenID = outcomeIndex === 0 ? tokens.yes : tokens.no
+  if (params.tokenId) {
+    tokenID = params.tokenId
+    tickSize = params.tickSize || '0.01'
+    negRisk = params.negRisk ?? false
+  } else {
+    const tokens = await getTokenIds(conditionId)
+    if (!tokens) throw new Error('Market not found or missing token IDs')
+    tokenID = outcomeIndex === 0 ? tokens.yes : tokens.no
+    tickSize = tokens.tickSize
+    negRisk = tokens.negRisk
+  }
+
   const client = await getClient()
-
-  // Get current best price and apply slippage
-  const bestPrice = await getBestPrice(client, tokenID, Side.BUY)
-  const priceWithSlippage = applySlippage(bestPrice, SLIPPAGE_PCT, tokens.tickSize)
 
   console.log(`[CLOB] Executing: $${amountUSD} on ${outcomeIndex === 0 ? 'YES' : 'NO'}`)
   console.log(`[CLOB] Token: ${tokenID.substring(0, 20)}...`)
-  console.log(`[CLOB] Best price: ${bestPrice}, with slippage: ${priceWithSlippage}`)
+  console.log(`[CLOB] negRisk: ${negRisk}, tickSize: ${tickSize}`)
 
-  // Place FOK market order with slippage-protected price
+  // Build order params: let CLOB client calculate price for neg-risk markets
+  // For standard markets, manually compute price with slippage protection
+  const orderParams: { tokenID: string; amount: number; side: Side; price?: number } = {
+    tokenID,
+    amount: amountUSD,
+    side: Side.BUY,
+  }
+
+  if (!negRisk) {
+    const bestPrice = await getBestPrice(client, tokenID, Side.BUY)
+    const priceWithSlippage = applySlippage(bestPrice, SLIPPAGE_PCT, tickSize)
+    orderParams.price = priceWithSlippage
+    console.log(`[CLOB] Best price: ${bestPrice}, with slippage: ${priceWithSlippage}`)
+  } else {
+    console.log(`[CLOB] Neg-risk market: letting CLOB client calculate price`)
+  }
+
+  // Place FOK market order
   const response = await client.createAndPostMarketOrder(
+    orderParams,
     {
-      tokenID,
-      amount: amountUSD,
-      side: Side.BUY,
-      price: priceWithSlippage,
-    },
-    {
-      tickSize: tokens.tickSize as '0.1' | '0.01' | '0.001' | '0.0001',
-      negRisk: tokens.negRisk,
+      tickSize: tickSize as '0.1' | '0.01' | '0.001' | '0.0001',
+      negRisk: negRisk,
     },
     OrderType.FOK,
   )
 
   console.log(`[CLOB] Order response:`, JSON.stringify(response))
 
-  if (!response.success && response.errorMsg) {
-    throw new Error(`CLOB order failed: ${response.errorMsg}`)
+  // Check for errors (CLOB uses both 'errorMsg' and 'error' fields)
+  const errorMessage = response.errorMsg || response.error
+  if (errorMessage) {
+    throw new Error(`CLOB order failed: ${errorMessage}`)
+  }
+  if (response.status === 'error' || (response.status && response.status !== 'matched' && response.status !== 'delayed')) {
+    throw new Error(`CLOB order status: ${response.status}`)
   }
 
   const txHashes: string[] = response.transactionsHashes || []
   const makingAmount = parseFloat(response.makingAmount || '0')
   const takingAmount = parseFloat(response.takingAmount || '0')
-  const fillPrice = takingAmount > 0 ? makingAmount / takingAmount : bestPrice
+  const fillPrice = takingAmount > 0 ? makingAmount / takingAmount : (orderParams.price || 0.5)
 
   return {
     success: true,
@@ -172,6 +200,76 @@ export async function executeClobBet(params: {
     price: fillPrice,
     shares: takingAmount,
     amountUSD: makingAmount || amountUSD,
+    explorerUrl: txHashes.length > 0
+      ? `https://polygonscan.com/tx/${txHashes[0]}`
+      : '',
+  }
+}
+
+// Sell shares on Polymarket CLOB
+export async function executeClobSell(params: {
+  tokenId: string
+  shares: number
+  tickSize?: string
+  negRisk?: boolean
+}): Promise<ClobBetResult> {
+  const { tokenId, shares } = params
+  const tickSize = params.tickSize || '0.01'
+  const negRisk = params.negRisk ?? false
+
+  if (shares <= 0) throw new Error('Shares must be positive')
+
+  const client = await getClient()
+
+  console.log(`[CLOB] Selling: ${shares} shares`)
+  console.log(`[CLOB] Token: ${tokenId.substring(0, 20)}...`)
+  console.log(`[CLOB] negRisk: ${negRisk}, tickSize: ${tickSize}`)
+
+  // For SELL, amount = number of shares to sell
+  const orderParams: { tokenID: string; amount: number; side: Side; price?: number } = {
+    tokenID: tokenId,
+    amount: shares,
+    side: Side.SELL,
+  }
+
+  if (!negRisk) {
+    const bestPrice = await getBestPrice(client, tokenId, Side.SELL)
+    // For selling, apply slippage downward (accept lower price)
+    const tick = parseFloat(tickSize)
+    const priceWithSlippage = Math.max(Math.floor(bestPrice * (1 - SLIPPAGE_PCT) / tick) * tick, tick)
+    orderParams.price = priceWithSlippage
+    console.log(`[CLOB] Best bid: ${bestPrice}, with slippage: ${priceWithSlippage}`)
+  } else {
+    console.log(`[CLOB] Neg-risk market: letting CLOB client calculate price`)
+  }
+
+  const response = await client.createAndPostMarketOrder(
+    orderParams,
+    {
+      tickSize: tickSize as '0.1' | '0.01' | '0.001' | '0.0001',
+      negRisk: negRisk,
+    },
+    OrderType.FOK,
+  )
+
+  console.log(`[CLOB] Sell response:`, JSON.stringify(response))
+
+  const errorMessage = response.errorMsg || response.error
+  if (errorMessage) throw new Error(`CLOB sell failed: ${errorMessage}`)
+
+  const txHashes: string[] = response.transactionsHashes || []
+  const makingAmount = parseFloat(response.makingAmount || '0')
+  const takingAmount = parseFloat(response.takingAmount || '0')
+  // For SELL: makingAmount = shares sold, takingAmount = USDC received
+  const fillPrice = makingAmount > 0 ? takingAmount / makingAmount : 0
+
+  return {
+    success: true,
+    orderID: response.orderID || '',
+    transactionHashes: txHashes,
+    price: fillPrice,
+    shares: makingAmount || shares,
+    amountUSD: takingAmount,
     explorerUrl: txHashes.length > 0
       ? `https://polygonscan.com/tx/${txHashes[0]}`
       : '',
