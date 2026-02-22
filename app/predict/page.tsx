@@ -1980,15 +1980,8 @@ function GroupsDrawer({ address, isConnected, lang, aiGateEligible, onEligibilit
 
               <div className="mb-6">
                 <label className="text-[9px] font-bold font-mono text-white/30 tracking-[1px] mb-1.5 block">MARKET (optional)</label>
-                <input type="text" value={createMarketSlug} onChange={e => {
-                    let val = e.target.value
-                    if (val.includes('polymarket.com/')) {
-                      const parts = val.split('/')
-                      val = parts[parts.length - 1] || parts[parts.length - 2] || val
-                    }
-                    setCreateMarketSlug(val)
-                  }}
-                  placeholder="Paste Polymarket URL or slug"
+                <input type="text" value={createMarketSlug} onChange={e => setCreateMarketSlug(e.target.value)}
+                  placeholder="Paste Polymarket URL"
                   className="w-full bg-transparent border border-white/[0.08] px-4 py-2.5 text-[14px] font-mono text-white placeholder:text-white/20 outline-none focus:border-white/20 transition-colors"
                 />
                 <p className="text-[10px] font-mono text-white/20 mt-1">Paste Polymarket slug. Members will bet on this market.</p>
@@ -2109,22 +2102,32 @@ function GroupsDrawer({ address, isConnected, lang, aiGateEligible, onEligibilit
                   </div>
 
                   {/* Group Market */}
-                  {selectedGroup.market_slug && (
-                    <div className="border border-[#836EF9]/20 bg-[#836EF9]/[0.04] px-3 py-3 mb-3">
-                      <span className="text-[9px] font-bold font-mono text-[#836EF9]/60 tracking-[1.5px]">GROUP MARKET</span>
-                      <p className="text-[13px] font-mono text-white mt-1">{selectedGroup.market_slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</p>
-                      <button
-                        onClick={() => {
-                          if (onBetMarket) {
-                            onBetMarket(selectedGroup.market_slug!)
-                            setOpen(false)
-                          }
-                        }}
-                        className="w-full mt-2 py-2.5 text-[12px] font-bold font-mono bg-[#836EF9] text-white hover:bg-[#836EF9]/90 transition-colors active:scale-[0.97] flex items-center justify-center gap-2">
-                        <Zap className="w-3.5 h-3.5" /> BET ON THIS MARKET
-                      </button>
-                    </div>
-                  )}
+                  {selectedGroup.market_slug && (() => {
+                    const raw = selectedGroup.market_slug!
+                    const slug = raw.includes('/') ? raw.split('/').filter(Boolean).pop() || raw : raw
+                    const label = slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+                    const polyUrl = raw.startsWith('http') ? raw : `https://polymarket.com/event/${raw}`
+                    return (
+                      <div className="border border-[#836EF9]/20 bg-[#836EF9]/[0.04] px-3 py-3 mb-3">
+                        <span className="text-[9px] font-bold font-mono text-[#836EF9]/60 tracking-[1.5px]">GROUP MARKET</span>
+                        <p className="text-[13px] font-mono text-white mt-1">{label}</p>
+                        <a href={polyUrl} target="_blank" rel="noopener noreferrer"
+                          className="text-[10px] font-mono text-[#836EF9]/60 hover:text-[#836EF9] transition-colors flex items-center gap-1 mt-0.5">
+                          <ExternalLink className="w-3 h-3" /> View on Polymarket
+                        </a>
+                        <button
+                          onClick={() => {
+                            if (onBetMarket) {
+                              onBetMarket(slug)
+                              setOpen(false)
+                            }
+                          }}
+                          className="w-full mt-2 py-2.5 text-[12px] font-bold font-mono bg-[#836EF9] text-white hover:bg-[#836EF9]/90 transition-colors active:scale-[0.97] flex items-center justify-center gap-2">
+                          <Zap className="w-3.5 h-3.5" /> BET ON THIS MARKET
+                        </button>
+                      </div>
+                    )
+                  })()}
 
                   {/* Members */}
                   <div className="border border-white/[0.08] bg-white/[0.04] mb-3">
