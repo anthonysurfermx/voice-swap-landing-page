@@ -101,8 +101,8 @@ function ConversationDemo() {
 
   const lines = [
     { who: 'user', text: `${name}, what are the odds on Verstappen winning?` },
-    { who: 'agent', text: 'Verstappen at $0.21 YES. Scanning 29 whale wallets...' },
-    { who: 'agent', text: '4 tracked wallets found. 78% weighted consensus YES.', tag: 'SIGNAL' },
+    { who: 'agent', text: 'Verstappen at $0.21 YES. Running Agent Radar...' },
+    { who: 'agent', text: '78% weighted consensus YES. Smart money loading.', tag: 'SIGNAL' },
     { who: 'agent', text: '2 AI agents detected. Consensus may be inflated.', tag: 'WARNING' },
     { who: 'user', text: `${name}, bet $5 on Yes` },
     { who: 'agent', text: 'Confirmed. 23.8 shares at $0.21. MON intent recorded on Monad.', tag: 'CONFIRMED' },
@@ -205,6 +205,14 @@ export default function BetWhisperLanding() {
             >
               Groups
             </a>
+            <a
+              href="https://github.com/anthonysurfermx/Betwhisper"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[13px] text-[--text-secondary] hover:text-white transition-colors duration-200 hidden sm:block"
+            >
+              GitHub
+            </a>
             <Link
               href="/predict"
               className="px-4 py-2 bg-white text-black text-[13px] font-semibold hover:bg-white/90 transition-colors duration-200 active:scale-[0.97]"
@@ -241,7 +249,7 @@ export default function BetWhisperLanding() {
             <p className={`text-[16px] md:text-[18px] text-[--text-secondary] max-w-xl leading-relaxed mb-10 transition-all duration-700 delay-500 ${
               loaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
             }`}>
-              Name your AI assistant. Ask it about any prediction market. It scans whale wallets, detects bot manipulation, and executes your bet cross-chain: pay with MON on Monad, settle on Polymarket. Talk through smart glasses, send a voice note, or type.
+              Name your AI assistant. Ask it about any prediction market. It detects bot manipulation, surfaces smart money signals, and executes your bet cross-chain: pay with MON on Monad, settle on Polymarket. Talk through smart glasses, send a voice note, or type.
             </p>
 
             {/* CTAs */}
@@ -278,18 +286,17 @@ export default function BetWhisperLanding() {
       {/* Stats bar */}
       <section ref={stats.ref} className="border-b border-[--border]">
         <div className="max-w-[1200px] mx-auto">
-          <div className={`grid grid-cols-2 md:grid-cols-4 transition-all duration-700 ${
+          <div className={`grid grid-cols-3 transition-all duration-700 ${
             stats.visible ? 'opacity-100' : 'opacity-0'
           }`}>
             {[
               { value: 2, suffix: '', label: 'Chains (Monad + Polygon)' },
-              { value: 29, suffix: '', label: 'Tracked whale wallets' },
-              { value: 12, suffix: '', label: 'Bot scoring attributes' },
               { value: 3, suffix: '', label: 'Channels (text, voice, glasses)' },
+              { value: 3, suffix: '', label: 'Languages (EN, ES, PT)' },
             ].map((stat, i) => (
               <div
                 key={stat.label}
-                className={`px-6 py-8 ${i < 3 ? 'border-r border-[--border]' : ''} ${i < 2 ? 'border-b md:border-b-0 border-[--border]' : ''}`}
+                className={`px-6 py-8 ${i < 2 ? 'border-r border-[--border]' : ''}`}
               >
                 <div className="text-[clamp(2rem,4vw,3rem)] font-bold tracking-tight">
                   <Counter end={stat.value} suffix={stat.suffix} />
@@ -325,7 +332,7 @@ export default function BetWhisperLanding() {
               {
                 num: '02',
                 title: 'Scan',
-                desc: 'Agent Radar scans 29 whale wallets. Weighted consensus, conviction levels, bot detection.',
+                desc: 'Agent Radar scans token holders. Weighted consensus, conviction levels, bot detection.',
               },
               {
                 num: '03',
@@ -438,7 +445,7 @@ export default function BetWhisperLanding() {
                 Protection against AI market manipulation
               </h2>
               <p className="text-[14px] text-[--text-secondary] leading-relaxed mb-8">
-                Before every bet, BetWhisper scores each wallet using 12 attributes and 7 behavioral signals to separate human whales from AI agents.
+                Before every bet, BetWhisper scores each token holder to separate human whales from AI agents and surface the real signal.
               </p>
               <div className="space-y-3">
                 {[
@@ -642,7 +649,7 @@ export default function BetWhisperLanding() {
                 { name: 'Polymarket CLOB', desc: 'Order execution on Polygon', url: 'https://polymarket.com' },
                 { name: 'Gemini Live', desc: 'Multimodal AI analysis', url: 'https://deepmind.google/technologies/gemini/' },
                 { name: 'SFSpeechRecognizer', desc: 'On-device voice', url: 'https://developer.apple.com/documentation/speech' },
-                { name: 'Agent Radar', desc: '29 whale wallets + bot detection', url: '#agent-shield' },
+                { name: 'Agent Radar', desc: 'Whale detection + bot scoring', url: '#agent-shield' },
                 { name: 'Meta Ray-Ban', desc: 'Smart glasses interface', url: 'https://www.ray-ban.com/usa/ray-ban-meta-smart-glasses' },
               ].map(tech => (
                 <a
@@ -699,6 +706,14 @@ export default function BetWhisperLanding() {
           <div className="flex items-center gap-4">
             <a href="#groups" className="text-[12px] text-[--text-tertiary] hover:text-white transition-colors">
               Groups
+            </a>
+            <a
+              href="https://github.com/anthonysurfermx/Betwhisper"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[12px] text-[--text-tertiary] hover:text-white transition-colors"
+            >
+              GitHub
             </a>
             <span className="text-[12px] text-[--text-tertiary]">
               Monad Blitz CDMX 2026

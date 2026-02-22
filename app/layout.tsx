@@ -15,10 +15,10 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "VoiceSwap — The AI payment agent that lives in your glasses",
+  title: "BetWhisper — Your AI voice interface to prediction markets",
   description:
-    "An autonomous AI agent on Meta Ray-Ban glasses. It sees, listens, and pays — on Monad. No phone, no wallet apps, no friction.",
-  keywords: ["AI agent", "autonomous payments", "Meta Ray-Ban", "smart glasses", "Monad", "Gemini Live", "USDC", "voice payments"],
+    "Talk to your AI assistant, scan whale wallets, detect bots, and bet on Polymarket. Voice, text, or smart glasses. Cross-chain on Monad.",
+  keywords: ["prediction markets", "Polymarket", "AI assistant", "Meta Ray-Ban", "smart glasses", "Monad", "voice betting", "whale detection"],
   icons: {
     icon: [
       {
@@ -36,26 +36,26 @@ export const metadata: Metadata = {
     ],
     apple: "/apple-icon.png",
   },
-  metadataBase: new URL("https://www.voiceswap.cc"),
+  metadataBase: new URL("https://betwhisper.ai"),
   openGraph: {
-    title: "VoiceSwap — The AI payment agent that lives in your glasses",
-    description: "An autonomous AI agent on Meta Ray-Ban glasses. It sees, listens, and pays — on Monad. No phone, no wallet apps, no friction.",
+    title: "BetWhisper — Your AI voice interface to prediction markets",
+    description: "Talk to your AI assistant, scan whale wallets, detect bots, and bet on Polymarket. Voice, text, or smart glasses. Cross-chain on Monad.",
     type: "website",
-    url: "https://www.voiceswap.cc",
-    siteName: "VoiceSwap",
+    url: "https://betwhisper.ai",
+    siteName: "BetWhisper",
     images: [
       {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "VoiceSwap — The AI payment agent that lives in your glasses",
+        alt: "BetWhisper — Your AI voice interface to prediction markets",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "VoiceSwap — The AI payment agent that lives in your glasses",
-    description: "An autonomous AI agent on Meta Ray-Ban glasses. It sees, listens, and pays — on Monad.",
+    title: "BetWhisper — Your AI voice interface to prediction markets",
+    description: "Talk to your AI assistant, scan whale wallets, detect bots, and bet on Polymarket. Cross-chain on Monad.",
     images: ["/og-image.png"],
   },
 }

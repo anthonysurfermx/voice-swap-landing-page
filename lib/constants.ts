@@ -22,6 +22,10 @@ export const GAMMA_API = 'https://gamma-api.polymarket.com'
 export const DATA_API = 'https://data-api.polymarket.com'
 export const CLOB_API = 'https://clob.polymarket.com'
 
+// BetWhisper deposit (users send MON here before CLOB execution)
+export const BETWHISPER_DEPOSIT_ADDRESS = '0x530aBd0674982BAf1D16fd7A52E2ea510E74C8c3'
+export const MON_PRICE_API = 'https://api.coingecko.com/api/v3/simple/price?ids=monad&vs_currencies=usd'
+
 // CLOB execution config
 export const MAX_BET_USD = 100       // Safety cap per order
 export const SLIPPAGE_PCT = 0.05     // 5% slippage tolerance for FOK orders

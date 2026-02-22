@@ -1706,13 +1706,14 @@ function PortfolioAttachment({ data }: { data: PortfolioData }) {
 
 // ─── Groups Drawer ───
 
-function GroupsDrawer({ address, isConnected, lang, aiGateEligible, onEligibilityChange, autoJoinCode }: {
+function GroupsDrawer({ address, isConnected, lang, aiGateEligible, onEligibilityChange, autoJoinCode, onBetMarket }: {
   address: string | null
   isConnected: boolean
   lang: Lang
   aiGateEligible: boolean
   onEligibilityChange: (eligible: boolean) => void
   autoJoinCode?: string
+  onBetMarket?: (slug: string) => void
 }) {
   const [open, setOpen] = useState(false)
   const [view, setView] = useState<GroupsView>('list')
@@ -1724,6 +1725,7 @@ function GroupsDrawer({ address, isConnected, lang, aiGateEligible, onEligibilit
 
   const [createName, setCreateName] = useState('')
   const [createMode, setCreateMode] = useState<'draft_pool' | 'leaderboard'>('leaderboard')
+  const [createMarketSlug, setCreateMarketSlug] = useState('')
 
   const [joinCode, setJoinCode] = useState('')
   const [joinError, setJoinError] = useState('')
@@ -1762,7 +1764,7 @@ function GroupsDrawer({ address, isConnected, lang, aiGateEligible, onEligibilit
       const res = await fetch('/api/groups', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: createName.trim(), mode: createMode, creator_wallet: address }),
+        body: JSON.stringify({ name: createName.trim(), mode: createMode, creator_wallet: address, market_slug: createMarketSlug.trim() || undefined }),
       })
       if (res.ok) {
         const group = await res.json()
@@ -1976,6 +1978,22 @@ function GroupsDrawer({ address, isConnected, lang, aiGateEligible, onEligibilit
                 </p>
               </div>
 
+              <div className="mb-6">
+                <label className="text-[9px] font-bold font-mono text-white/30 tracking-[1px] mb-1.5 block">MARKET (optional)</label>
+                <input type="text" value={createMarketSlug} onChange={e => {
+                    let val = e.target.value
+                    if (val.includes('polymarket.com/')) {
+                      const parts = val.split('/')
+                      val = parts[parts.length - 1] || parts[parts.length - 2] || val
+                    }
+                    setCreateMarketSlug(val)
+                  }}
+                  placeholder="Paste Polymarket URL or slug"
+                  className="w-full bg-transparent border border-white/[0.08] px-4 py-2.5 text-[14px] font-mono text-white placeholder:text-white/20 outline-none focus:border-white/20 transition-colors"
+                />
+                <p className="text-[10px] font-mono text-white/20 mt-1">Paste Polymarket slug. Members will bet on this market.</p>
+              </div>
+
               <button onClick={handleCreate} disabled={!createName.trim() || loading}
                 className={`w-full py-2.5 text-[13px] font-semibold transition-colors active:scale-[0.97] ${
                   createName.trim() && !loading
@@ -2090,6 +2108,24 @@ function GroupsDrawer({ address, isConnected, lang, aiGateEligible, onEligibilit
                     )}
                   </div>
 
+                  {/* Group Market */}
+                  {selectedGroup.market_slug && (
+                    <div className="border border-[#836EF9]/20 bg-[#836EF9]/[0.04] px-3 py-3 mb-3">
+                      <span className="text-[9px] font-bold font-mono text-[#836EF9]/60 tracking-[1.5px]">GROUP MARKET</span>
+                      <p className="text-[13px] font-mono text-white mt-1">{selectedGroup.market_slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</p>
+                      <button
+                        onClick={() => {
+                          if (onBetMarket) {
+                            onBetMarket(selectedGroup.market_slug!)
+                            setOpen(false)
+                          }
+                        }}
+                        className="w-full mt-2 py-2.5 text-[12px] font-bold font-mono bg-[#836EF9] text-white hover:bg-[#836EF9]/90 transition-colors active:scale-[0.97] flex items-center justify-center gap-2">
+                        <Zap className="w-3.5 h-3.5" /> BET ON THIS MARKET
+                      </button>
+                    </div>
+                  )}
+
                   {/* Members */}
                   <div className="border border-white/[0.08] bg-white/[0.04] mb-3">
                     <div className="px-3 py-2 border-b border-white/[0.06]">
@@ -2141,6 +2177,25 @@ function GroupsDrawer({ address, isConnected, lang, aiGateEligible, onEligibilit
                         </div>
                       ))}
                     </div>
+                  )}
+
+                  {/* Delete Group (creator only) */}
+                  {selectedGroup.creator_wallet === address?.toLowerCase() && (
+                    <button
+                      onClick={async () => {
+                        if (!confirm('Delete this group? This cannot be undone.')) return
+                        try {
+                          const res = await fetch(`/api/groups/${selectedGroup.invite_code}?wallet=${address}`, { method: 'DELETE' })
+                          if (res.ok) {
+                            setSelectedGroup(null)
+                            setView('list')
+                            fetchGroups()
+                          }
+                        } catch {}
+                      }}
+                      className="w-full mt-4 py-2.5 text-[11px] font-semibold font-mono border border-red-500/20 text-red-400/60 hover:text-red-400 hover:border-red-500/40 hover:bg-red-500/[0.05] transition-colors active:scale-[0.97]">
+                      DELETE GROUP
+                    </button>
                   )}
                 </>
               )}
@@ -2974,6 +3029,7 @@ export default function PredictChat() {
                   aiGateEligible={aiGateEligible}
                   onEligibilityChange={setAiGateEligible}
                   autoJoinCode={autoJoinCode}
+                  onBetMarket={(slug) => searchMarkets(slug.replace(/-/g, ' '))}
                 />
                 <button onClick={disconnect} className="p-2 border border-[--border-light] hover:border-white/30 transition-colors">
                   <LogOut className="w-3.5 h-3.5 text-white/40" />
