@@ -17,8 +17,8 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "BetWhisper — Your AI voice interface to prediction markets",
   description:
-    "Talk to your AI assistant, scan whale wallets, detect bots, and bet on Polymarket. Voice, text, or smart glasses. Cross-chain on Monad.",
-  keywords: ["prediction markets", "Polymarket", "AI assistant", "Meta Ray-Ban", "smart glasses", "Monad", "voice betting", "whale detection"],
+    "Talk to your AI assistant, scan whale wallets, detect bots, and trade on Polymarket. Voice, text, or smart glasses. Cross-chain on Monad.",
+  keywords: ["prediction markets", "Polymarket", "AI assistant", "Meta Ray-Ban", "smart glasses", "Monad", "voice trading", "whale detection"],
   icons: {
     icon: [
       {
@@ -39,7 +39,7 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://betwhisper.ai"),
   openGraph: {
     title: "BetWhisper — Your AI voice interface to prediction markets",
-    description: "Talk to your AI assistant, scan whale wallets, detect bots, and bet on Polymarket. Voice, text, or smart glasses. Cross-chain on Monad.",
+    description: "Talk to your AI assistant, scan whale wallets, detect bots, and trade on Polymarket. Voice, text, or smart glasses. Cross-chain on Monad.",
     type: "website",
     url: "https://betwhisper.ai",
     siteName: "BetWhisper",
@@ -55,7 +55,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "BetWhisper — Your AI voice interface to prediction markets",
-    description: "Talk to your AI assistant, scan whale wallets, detect bots, and bet on Polymarket. Cross-chain on Monad.",
+    description: "Talk to your AI assistant, scan whale wallets, detect bots, and trade on Polymarket. Cross-chain on Monad.",
     images: ["/og-image.png"],
   },
 }

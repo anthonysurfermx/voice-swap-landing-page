@@ -4,10 +4,10 @@ import { Web3Provider } from '@/components/web3-provider'
 export const metadata: Metadata = {
   title: "BetWhisper — Predict",
   description:
-    "Search any prediction market. Your AI assistant scans whale wallets, detects bots, and helps you place informed bets on Monad.",
+    "Search any prediction market. Your AI assistant scans whale wallets, detects bots, and helps you trade smarter on Monad.",
   openGraph: {
     title: "BetWhisper — Predict",
-    description: "Search any prediction market. Your AI scans whale wallets, detects bots, and helps you bet smarter.",
+    description: "Search any prediction market. Your AI scans whale wallets, detects bots, and helps you trade smarter.",
     type: "website",
     url: "https://betwhisper.ai/predict",
     siteName: "BetWhisper",
@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "BetWhisper — Predict",
-    description: "Search any prediction market. Your AI scans whale wallets, detects bots, and helps you bet smarter.",
+    description: "Search any prediction market. Your AI scans whale wallets, detects bots, and helps you trade smarter.",
   },
 }
 

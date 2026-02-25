@@ -104,7 +104,7 @@ function ConversationDemo() {
     { who: 'agent', text: 'Verstappen at $0.21 YES. Running Agent Radar...' },
     { who: 'agent', text: '78% weighted consensus YES. Smart money loading.', tag: 'SIGNAL' },
     { who: 'agent', text: '2 AI agents detected. Consensus may be inflated.', tag: 'WARNING' },
-    { who: 'user', text: `${name}, bet $5 on Yes` },
+    { who: 'user', text: `${name}, trade $5 on Yes` },
     { who: 'agent', text: 'Confirmed. 23.8 shares at $0.21. MON intent recorded on Monad.', tag: 'CONFIRMED' },
   ]
 
@@ -249,7 +249,7 @@ export default function BetWhisperLanding() {
             <p className={`text-[16px] md:text-[18px] text-[--text-secondary] max-w-xl leading-relaxed mb-10 transition-all duration-700 delay-500 ${
               loaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
             }`}>
-              Name your AI assistant. Ask it about any prediction market. It detects bot manipulation, surfaces smart money signals, and executes your bet cross-chain: pay with MON on Monad, settle on Polymarket. Talk through smart glasses, send a voice note, or type.
+              Name your AI assistant. Ask it about any prediction market. It detects bot manipulation, surfaces smart money signals, and executes your trade cross-chain: pay with MON on Monad, settle on Polymarket. Talk through smart glasses, send a voice note, or type.
             </p>
 
             {/* CTAs */}
@@ -317,7 +317,7 @@ export default function BetWhisperLanding() {
             <h2 className={`text-[clamp(1.8rem,4vw,3rem)] font-bold tracking-tight max-w-2xl transition-all duration-700 ${
               howItWorks.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
             }`}>
-              Five steps from question to cross-chain bet
+              Five steps from question to cross-chain trade
             </h2>
           </div>
 
@@ -336,7 +336,7 @@ export default function BetWhisperLanding() {
               },
               {
                 num: '03',
-                title: 'Bet',
+                title: 'Trade',
                 desc: 'Pay with MON on Monad. BetWhisper executes on Polymarket CLOB with slippage protection.',
               },
               {
@@ -377,10 +377,10 @@ export default function BetWhisperLanding() {
                 <span className="text-[13px] text-[#836EF9] font-semibold">Cross-Chain Execution</span>
               </div>
               <h2 className="text-[clamp(1.8rem,4vw,2.8rem)] font-bold tracking-tight mb-6">
-                Pay with MON. Bet on Polymarket. Cash out to MON.
+                Pay with MON. Trade on Polymarket. Cash out to MON.
               </h2>
               <p className="text-[14px] text-[--text-secondary] leading-relaxed mb-8">
-                BetWhisper bridges the gap between Monad and Polymarket. Your MON payment is recorded on-chain as an intent signal. The bet executes on Polygon via Polymarket CLOB. When you sell, proceeds convert back to MON automatically.
+                BetWhisper bridges the gap between Monad and Polymarket. Your MON payment is recorded on-chain as an intent signal. The trade executes on Polygon via Polymarket CLOB. When you sell, proceeds convert back to MON automatically.
               </p>
               <div className="space-y-3">
                 {[
@@ -446,7 +446,7 @@ export default function BetWhisperLanding() {
               Full-spectrum intelligence for prediction markets
             </h2>
             <p className="text-[14px] text-[--text-secondary] leading-relaxed max-w-2xl mb-6">
-              Agent Radar scans every holder, detects bot manipulation, tracks smart money movements, computes convergence scores, and surfaces alpha signals — all before you bet. Now available as a standalone REST API.
+              Agent Radar scans every holder, detects bot manipulation, tracks smart money movements, computes convergence scores, and surfaces alpha signals — all before you trade. Now available as a standalone REST API.
             </p>
             <a
               href="https://github.com/anthonysurfermx/polymarket-agent-radar-API"
@@ -682,13 +682,13 @@ export default function BetWhisperLanding() {
               {
                 icon: '🎙️',
                 title: 'Voice',
-                desc: 'Send a voice note to your assistant. On-device transcription via SFSpeechRecognizer with Bluetooth HFP. Hands-free betting.',
+                desc: 'Send a voice note to your assistant. On-device transcription via SFSpeechRecognizer with Bluetooth HFP. Hands-free trading.',
                 status: 'Live',
               },
               {
                 icon: '👓',
                 title: 'Smart Glasses',
-                desc: 'Talk to your assistant through Meta Ray-Bans. On-device speech recognition with 2-second silence detection. The most natural way to bet.',
+                desc: 'Talk to your assistant through Meta Ray-Bans. On-device speech recognition with 2-second silence detection. The most natural way to trade.',
                 status: 'Live',
               },
             ].map((channel, i) => (
@@ -716,7 +716,7 @@ export default function BetWhisperLanding() {
           <div className="px-6 py-16 md:py-24 border-b border-[--border]">
             <span className="text-[13px] text-[--text-secondary] block mb-4">Groups</span>
             <h2 className="text-[clamp(1.8rem,4vw,3rem)] font-bold tracking-tight max-w-2xl">
-              Bet with friends. Unlock AI.
+              Trade with friends. Unlock AI.
             </h2>
             <p className="text-[14px] text-[--text-secondary] mt-3 max-w-lg">
               Create a group, share a QR code, and compete. Invite one friend to unlock AI-powered market explanations.
@@ -734,7 +734,7 @@ export default function BetWhisperLanding() {
                   </span>
                 </div>
                 <p className="text-[14px] text-[--text-secondary] leading-relaxed">
-                  Creator picks the market. Everyone bets the same question. Pure conviction test.
+                  Creator picks the market. Everyone trades the same question. Pure conviction test.
                 </p>
               </div>
 
@@ -843,7 +843,7 @@ export default function BetWhisperLanding() {
             <span className="text-[--text-secondary]">Start whispering.</span>
           </h2>
           <p className="text-[16px] text-[--text-secondary] max-w-md mx-auto mb-10">
-            Pay with MON. Bet on Polymarket. Cash out cross-chain.
+            Pay with MON. Trade on Polymarket. Cash out cross-chain.
             Let your AI find the edge.
           </p>
           <Link
