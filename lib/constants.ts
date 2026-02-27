@@ -26,9 +26,24 @@ export const CLOB_API = 'https://clob.polymarket.com'
 export const BETWHISPER_DEPOSIT_ADDRESS = '0x530aBd0674982BAf1D16fd7A52E2ea510E74C8c3'
 export const MON_PRICE_API = 'https://api.coingecko.com/api/v3/simple/price?ids=monad&vs_currencies=usd'
 
+// Polygon RPC fallbacks (Brazil region has issues with some providers)
+export const POLYGON_RPC_FALLBACKS = [
+  'https://polygon-bor-rpc.publicnode.com',
+  'https://1rpc.io/matic',
+  'https://polygon.drpc.org',
+]
+
 // CLOB execution config
 export const MAX_BET_USD = 100       // Safety cap per order
 export const SLIPPAGE_PCT = 0.05     // 5% slippage tolerance for FOK orders
+
+// Payment verification & safety
+export const PAYMENT_TOLERANCE = 0.05        // Max 5% underpayment allowed
+export const RPC_TIMEOUT_MS = 6_000          // Timeout for Monad RPC calls
+export const PRICE_FETCH_TIMEOUT_MS = 4_000  // Timeout for price oracle calls
+export const DAILY_SPEND_LIMIT_USD = 500     // Server-side daily spending cap
+export const RATE_LIMIT_PER_MINUTE = 5       // Max trades per wallet per minute
+export const REFUND_GAS_BUFFER_MON = 0.1     // Gas buffer deducted from refunds
 
 // Consensus thresholds
 export const MIN_SMART_WALLETS_FOR_SIGNAL = 2

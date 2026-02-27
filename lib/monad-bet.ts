@@ -1,9 +1,26 @@
-// On-chain bet payment on Monad
+// On-chain bet payment on Monad — v3 (retry loop for tx confirmation)
 // User sends MON equivalent to their USD bet amount to BetWhisper deposit address
 // Bet metadata in calldata provides on-chain data provenance
 
 import { JsonRpcSigner, JsonRpcProvider, Wallet, parseEther, hexlify, toUtf8Bytes, formatEther } from 'ethers'
-import { MONAD_EXPLORER, MONAD_RPC, BETWHISPER_DEPOSIT_ADDRESS } from './constants'
+import { MONAD_EXPLORER, MONAD_RPC, BETWHISPER_DEPOSIT_ADDRESS, RPC_TIMEOUT_MS, PAYMENT_TOLERANCE } from './constants'
+import { getMonPriceOrThrow } from './mon-price'
+
+// Fetch with AbortController timeout for RPC calls
+async function fetchRpcWithTimeout(url: string, body: unknown, timeoutMs: number = RPC_TIMEOUT_MS): Promise<Response> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    })
+  } finally {
+    clearTimeout(timer)
+  }
+}
 
 export interface BetParams {
   marketSlug: string
@@ -58,8 +75,11 @@ export async function executeBet(
 }
 
 // Verify a MON payment transaction on Monad RPC (server-side)
-// Returns computedUSD: the server-side USD calculation from on-chain MON value
-export async function verifyMonadPayment(txHash: string, expectedAmountUSD: number, monPriceUSD: number): Promise<{
+// Uses batch JSON-RPC (1 request instead of 2) + AbortController timeout
+// Price from multi-source oracle (never hardcoded fallback)
+// Tolerance: 5% max underpayment
+// Retry loop: waits up to ~10s for Monad to confirm tx
+export async function verifyMonadPayment(txHash: string, expectedAmountUSD: number, _monPriceUSD: number): Promise<{
   verified: boolean
   error?: string
   from?: string
@@ -67,28 +87,29 @@ export async function verifyMonadPayment(txHash: string, expectedAmountUSD: numb
   computedUSD?: number
 }> {
   try {
-    const res = await fetch('https://rpc.monad.xyz', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0', method: 'eth_getTransactionReceipt', params: [txHash], id: 1,
-      }),
-    })
-    const data = await res.json()
-    const receipt = data.result
-    if (!receipt) return { verified: false, error: 'Transaction not found' }
-    if (receipt.status !== '0x1') return { verified: false, error: 'Transaction failed' }
+    console.log(`[Payment v3] Verifying tx ${txHash.slice(0, 12)}... (retry loop active)`)
+    // Retry loop: wait for Monad to confirm the transaction (up to ~10s)
+    let receipt: Record<string, string> | null = null
+    let tx: Record<string, string> | null = null
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const batchRes = await fetchRpcWithTimeout(MONAD_RPC, [
+        { jsonrpc: '2.0', method: 'eth_getTransactionReceipt', params: [txHash], id: 1 },
+        { jsonrpc: '2.0', method: 'eth_getTransactionByHash', params: [txHash], id: 2 },
+      ])
+      const batchData = await batchRes.json() as Array<{ id: number; result: Record<string, string> | null }>
 
-    // Get full tx for value and to
-    const txRes = await fetch('https://rpc.monad.xyz', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0', method: 'eth_getTransactionByHash', params: [txHash], id: 2,
-      }),
-    })
-    const txData = await txRes.json()
-    const tx = txData.result
+      receipt = batchData.find(r => r.id === 1)?.result ?? null
+      tx = batchData.find(r => r.id === 2)?.result ?? null
+
+      if (receipt) break // Transaction confirmed
+      // Wait before retrying (1s, 2s, 2s, 3s)
+      const delay = [1000, 2000, 2000, 3000, 3000][attempt]
+      console.log(`[Payment] Tx not confirmed yet, retry ${attempt + 1}/5 in ${delay}ms...`)
+      await new Promise(r => setTimeout(r, delay))
+    }
+
+    if (!receipt) return { verified: false, error: 'Transaction not confirmed after 10s' }
+    if (receipt.status !== '0x1') return { verified: false, error: 'Transaction failed' }
     if (!tx) return { verified: false, error: 'Transaction data not found' }
 
     // Verify recipient is deposit address
@@ -99,22 +120,14 @@ export async function verifyMonadPayment(txHash: string, expectedAmountUSD: numb
     // Read on-chain MON value
     const valueMON = parseFloat(formatEther(BigInt(tx.value)))
 
-    // Server-side price verification: fetch MON price independently
-    let serverMonPrice = monPriceUSD
-    try {
-      const priceRes = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=monad&vs_currencies=usd')
-      if (priceRes.ok) {
-        const priceData = await priceRes.json()
-        if (priceData?.monad?.usd > 0) serverMonPrice = priceData.monad.usd
-      }
-    } catch { /* use client-provided price as fallback */ }
+    // Server-side price from multi-source oracle (throws if all sources fail)
+    const serverMonPrice = await getMonPriceOrThrow()
 
-    // Compute USD from on-chain MON amount using server-fetched price
+    // Compute USD from on-chain MON amount
     const computedUSD = valueMON * serverMonPrice
 
-    // Verify amount: on-chain MON must cover at least 85% of expected USD
-    // (accounts for price movement between client fetch and server verification)
-    const minUSD = expectedAmountUSD * 0.85
+    // Verify amount: max 5% underpayment tolerance
+    const minUSD = expectedAmountUSD * (1 - PAYMENT_TOLERANCE)
     if (computedUSD < minUSD) {
       return {
         verified: false,

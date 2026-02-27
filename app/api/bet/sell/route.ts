@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { executeClobSell } from '@/lib/polymarket-clob'
 import { sendMON, getServerMONBalance } from '@/lib/monad-bet'
+import { getMonPriceOrThrow } from '@/lib/mon-price'
 import { sql } from '@/lib/db'
 import { verifyJWT, extractBearerToken } from '@/lib/auth'
+import { REFUND_GAS_BUFFER_MON } from '@/lib/constants'
 
 // MON cashout: after CLOB sell, send MON equivalent to user on Monad
-// Gas buffer deducted from cashout amount (~0.5 MON)
-const GAS_BUFFER_MON = 0.5
+const GAS_BUFFER_MON = REFUND_GAS_BUFFER_MON
 
 export async function POST(request: NextRequest) {
   const body = await request.json()
@@ -58,12 +59,23 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const result = await executeClobSell({
-      tokenId,
-      shares: Math.min(sharesToSell, currentShares),
-      tickSize: tickSize || '0.01',
-      negRisk: negRisk || false,
-    })
+    const isMock = process.env.MOCK_POLYGON_EXECUTION?.toLowerCase() === 'true'
+    const actualShares = Math.min(sharesToSell, currentShares)
+    const avgPrice = parseFloat(position.avg_price) || 0.5
+    const result = isMock
+      ? {
+          shares: actualShares,
+          amountUSD: actualShares * avgPrice,
+          price: avgPrice,
+          transactionHashes: [`0x${Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`],
+          explorerUrl: '',
+        }
+      : await executeClobSell({
+          tokenId,
+          shares: actualShares,
+          tickSize: tickSize || '0.01',
+          negRisk: negRisk || false,
+        })
 
     // Update position in database
     const remainingShares = currentShares - (result.shares || sharesToSell)
@@ -84,15 +96,21 @@ export async function POST(request: NextRequest) {
     let monCashout: { monAmount: number; txHash: string; explorerUrl: string; status: string } | null = null
 
     if (result.amountUSD > 0) {
-      // Fetch MON price
-      let monPriceUSD = 0.021
+      // Fetch MON price from multi-source oracle
+      let monPriceUSD = 0
       try {
-        const priceRes = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=monad&vs_currencies=usd')
-        if (priceRes.ok) {
-          const priceData = await priceRes.json()
-          if (priceData?.monad?.usd > 0) monPriceUSD = priceData.monad.usd
-        }
-      } catch { /* fallback */ }
+        monPriceUSD = await getMonPriceOrThrow()
+      } catch {
+        // Fallback: try CoinGecko directly
+        try {
+          const priceRes = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=monad&vs_currencies=usd')
+          if (priceRes.ok) {
+            const priceData = await priceRes.json()
+            if (priceData?.monad?.usd > 0) monPriceUSD = priceData.monad.usd
+          }
+        } catch { /* no price available */ }
+      }
+      if (monPriceUSD <= 0) monPriceUSD = 0.021 // last resort fallback for cashout
 
       const monToSend = (result.amountUSD / monPriceUSD) - GAS_BUFFER_MON
 
