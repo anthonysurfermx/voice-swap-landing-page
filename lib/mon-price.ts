@@ -131,3 +131,4 @@ export async function getMonPriceOrThrow(): Promise<number> {
   }
   return result.price
 }
+// deploy trigger 1772178226
